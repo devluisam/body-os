@@ -179,8 +179,10 @@ nav button.active {
   color: var(--primary);
   background: #273021;
 }
-nav button:hover {
-  background: #242d25;
+@media (hover: hover) and (pointer: fine) {
+  nav button:hover {
+    background: #242d25;
+  }
 }
 .mini {
   margin-left: auto;
@@ -279,8 +281,10 @@ main {
   color: var(--primary-foreground);
   border-color: var(--primary);
 }
-.button:hover {
-  filter: brightness(1.08);
+@media (hover: hover) and (pointer: fine) {
+  .button:hover {
+    filter: brightness(1.08);
+  }
 }
 .icon-button {
   border: 0;

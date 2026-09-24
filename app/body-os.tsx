@@ -132,7 +132,7 @@ export default function BodyOS() {
     setPage(n);
     setMenu(false);
     location.hash = n;
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0 });
   }
   function open(n: string, row?: Draft) {
     setInitial(row);

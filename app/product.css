@@ -722,3 +722,131 @@ input[type="range"] {
     z-index: 80;
   }
 }
+
+/* ── Movimento ─────────────────────────────────────────────
+   Regras: só transform/opacity onde dá, curvas próprias,
+   saída rápida, nada animado em ações repetidas (troca de aba). */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+@property --progress {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+/* Feedback de toque: tudo que é pressionável afunda um pouco. */
+.button,
+.icon-button,
+.text-button,
+nav button,
+.tabs button,
+.quick-grid button,
+.quick-bar button,
+.prompt-grid button {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 150ms ease,
+    color 150ms ease,
+    filter 150ms ease;
+}
+.button:active,
+.icon-button:active,
+.text-button:active,
+nav button:active,
+.tabs button:active,
+.quick-grid button:active,
+.quick-bar button:active,
+.prompt-grid button:active {
+  transform: scale(0.97);
+}
+button:disabled:active {
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .quick-grid button:hover,
+  .prompt-grid button:hover,
+  .quick-bar button:hover {
+    background-color: #262f28;
+  }
+  .tabs button:not(.selected):hover {
+    color: var(--foreground);
+  }
+  [data-theme="light"] nav button:hover {
+    background: #e1eada;
+  }
+  [data-theme="light"] .quick-grid button:hover,
+  [data-theme="light"] .prompt-grid button:hover,
+  [data-theme="light"] .quick-bar button:hover {
+    background-color: #dfe8d8;
+  }
+}
+
+/* Dados que mudam: o anel e as barras deslizam até o novo valor
+   (não animam na montagem — só quando um registro altera o número). */
+.calorie-ring {
+  transition: --progress 500ms var(--ease-in-out);
+}
+.track i {
+  transition: width 500ms var(--ease-in-out);
+}
+
+/* Toast: entra de baixo, como o Sonner. */
+.toast {
+  transition:
+    transform 400ms ease,
+    opacity 400ms ease;
+}
+@starting-style {
+  .toast {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+/* Menu mobile: gaveta com curva de iOS, fundo esmaecendo. */
+@media (max-width: 760px) {
+  .sidebar.open {
+    transition: transform 320ms var(--ease-drawer);
+  }
+  .nav-scrim {
+    transition: opacity 240ms ease;
+  }
+  @starting-style {
+    .sidebar.open {
+      transform: translateX(-100%);
+    }
+    .nav-scrim {
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button:active,
+  .icon-button:active,
+  .text-button:active,
+  nav button:active,
+  .tabs button:active,
+  .quick-grid button:active,
+  .quick-bar button:active,
+  .prompt-grid button:active {
+    transform: none;
+  }
+  .calorie-ring,
+  .track i,
+  .sidebar.open {
+    transition: none;
+  }
+  .toast {
+    transition: opacity 200ms ease;
+  }
+  @starting-style {
+    .toast {
+      transform: none;
+    }
+  }
+}
