@@ -36,6 +36,7 @@ import {
 } from "recharts";
 import {
   Data,
+  Draft,
   Row,
   Table,
   today,
@@ -54,6 +55,9 @@ import {
   assessment,
   calorieReview,
   mealIdea,
+  mealPlan,
+  slotAt,
+  nowTime,
   PHASES,
 } from "@/lib/body";
 import { delivery } from "@/lib/coach";
@@ -61,7 +65,7 @@ import { nextStep, phaseSuggestion } from "@/lib/decisions";
 import { RecordForm, Save } from "./forms";
 type Props = {
   data: Data;
-  open: (kind: string, row?: Row) => void;
+  open: (kind: string, row?: Draft) => void;
   save: Save;
   refresh: () => Promise<void>;
   notice: (s: string) => void;
@@ -419,6 +423,19 @@ export function Overview(p: Props) {
               total={t.fat}
               color="#efa26b"
             />
+            {(() => {
+              const next = mealPlan(data).next;
+              return (
+                <p className="insight">
+                  {next
+                    ? `Próxima: ${next.name} por volta das ${next.time} · ~${fmt(
+                        next.target.calories,
+                        0,
+                      )} kcal e ${fmt(next.target.protein, 0)} g de proteína.`
+                    : "Todas as refeições do plano já têm registro hoje."}
+                </p>
+              );
+            })()}
             <Button onClick={() => open("Refeição")}>
               <Plus size={16} /> Registrar refeição
             </Button>
@@ -507,6 +524,81 @@ export function Overview(p: Props) {
     </>
   );
 }
+export function DayPlan({
+  data,
+  open,
+  date = today(),
+}: Props & { date?: string }) {
+  const plan = mealPlan(data, date),
+    isToday = date === today();
+  return (
+    <section className="card">
+      <div className="card-head">
+        <div>
+          <small className="accent">ROTINA DO DIA</small>
+          <h2>Plano de refeições</h2>
+        </div>
+        <Clock size={18} className="accent" />
+      </div>
+      {plan.slots.map((s) => (
+        <div className="log-row" key={s.name}>
+          <div>
+            <h3>
+              {s.time} · {s.name}{" "}
+              <small>{s.done ? "registrado" : "pendente"}</small>
+            </h3>
+            <p>
+              {s.done
+                ? s.meals
+                    .map(
+                      (x) =>
+                        `${x.time} ${(x.items ?? [])
+                          .map((i: any) => i.name)
+                          .filter(Boolean)
+                          .join(", ")}`.trim(),
+                    )
+                    .join(" · ")
+                : s.note}
+            </p>
+            <small>
+              {s.done
+                ? `${fmt(s.logged.calories, 0)} kcal · ${fmt(
+                    s.logged.protein,
+                    0,
+                  )} g proteína · meta ~${fmt(s.target.calories, 0)} kcal`
+                : `Meta: ~${fmt(s.target.calories, 0)} kcal · ${fmt(
+                    s.target.protein,
+                    0,
+                  )} g proteína`}
+            </small>
+          </div>
+          <button
+            className="text-button"
+            onClick={() =>
+              open("Refeição", {
+                date,
+                name: s.name,
+                time: isToday && s.name === slotAt().name ? nowTime() : s.time,
+              })
+            }
+          >
+            {s.done ? "Adicionar" : "Registrar"}
+          </button>
+        </div>
+      ))}
+      <p className="insight">
+        {plan.next
+          ? `Próxima refeição pendente: ${plan.next.name}, por volta das ${plan.next.time}.`
+          : "Todas as refeições do plano têm registro neste dia."}{" "}
+        {plan.remaining > 0
+          ? `Faltam ${fmt(plan.remaining, 0)} kcal para a meta do dia.`
+          : `Você já passou ${fmt(-plan.remaining, 0)} kcal da meta do dia.`}{" "}
+        Horários e divisão são sugestões de rotina, não regras: o que conta é o
+        total do dia e a proteína.
+      </p>
+    </section>
+  );
+}
 export function Nutrition(p: Props) {
   const { data, open, remove } = p,
     [date, setDate] = useState(today()),
@@ -545,6 +637,7 @@ export function Nutrition(p: Props) {
           />
         ))}
       </div>
+      <DayPlan {...p} date={date} />
       <div className="home-grid">
         <section className="card">
           <div className="card-head">
@@ -658,8 +751,12 @@ export function MealPlanner({ data, save, notice }: Props) {
     [after, setAfter] = useState(false),
     [items, setItems] = useState<Row[]>([]),
     [kind, setKind] = useState("PF"),
-    [mode, setMode] = useState("Em casa");
-  const m = macros(items);
+    [mode, setMode] = useState("Em casa"),
+    [meal, setMeal] = useState(() => slotAt().name),
+    [mealTime, setMealTime] = useState(() => nowTime());
+  const m = macros(items),
+    plan = mealPlan(data),
+    slot = plan.slots.find((s) => s.name === meal) ?? plan.slots[0];
   return (
     <section className="card planner">
       <div className="card-head">
@@ -680,6 +777,37 @@ export function MealPlanner({ data, save, notice }: Props) {
           </button>
         ))}
       </div>
+      <div className="tabs meal-tabs">
+        {plan.slots.map((s) => (
+          <button
+            key={s.name}
+            className={meal === s.name ? "selected" : ""}
+            onClick={() => {
+              setMeal(s.name);
+              setItems([]);
+              setMealTime(s.name === slotAt().name ? nowTime() : s.time);
+            }}
+          >
+            {s.done && <Check size={13} />} {s.name}
+          </button>
+        ))}
+      </div>
+      <p className="insight">
+        <strong>
+          {slot.name} · sugestão de horário {slot.time}
+        </strong>
+        <br />
+        Cerca de {fmt(slot.target.calories, 0)} kcal e{" "}
+        {fmt(slot.target.protein, 0)} g de proteína ={" "}
+        {Math.round(slot.share * 100)}% do seu dia.{" "}
+        {slot.done
+          ? `Já registrado hoje: ${fmt(slot.logged.calories, 0)} kcal. ${
+              slot.remaining > 80
+                ? `Ainda cabem ~${fmt(slot.remaining, 0)} kcal nesta refeição.`
+                : "Esta refeição já está na meta."
+            }`
+          : `Ainda não registrado hoje. ${slot.note}`}
+      </p>
       {mode === "Delivery" ? (
         <>
           <div className="form-grid">
@@ -700,7 +828,9 @@ export function MealPlanner({ data, save, notice }: Props) {
             </label>
           </div>
           <p className="insight">
-            {delivery[kind]} Pergunte sobre lactose e registre a refeição
+            {delivery[kind]} Para {meal.toLowerCase()}, mire perto de{" "}
+            {fmt(slot.target.calories, 0)} kcal e {fmt(slot.target.protein, 0)}{" "}
+            g de proteína. Pergunte sobre lactose e registre a refeição
             estimada. Não há pedido automático.
           </p>
         </>
@@ -756,6 +886,7 @@ export function MealPlanner({ data, save, notice }: Props) {
                 data,
                 hunger,
                 training || after,
+                meal,
               );
               setItems(result);
               if (!result.length)
@@ -768,7 +899,9 @@ export function MealPlanner({ data, save, notice }: Props) {
           </Button>
           {items.length > 0 && (
             <div className="suggestion">
-              <h3>Sugestão ajustável</h3>
+              <h3>
+                {meal} ajustável · {mealTime}
+              </h3>
               {items.map((x) => (
                 <div className="log-row" key={x.id}>
                   <span>{x.name}</span>
@@ -787,21 +920,25 @@ export function MealPlanner({ data, save, notice }: Props) {
                     : "Ajuste as quantidades à fome e às metas restantes."}{" "}
                 Estimativa aproximada.
               </p>
+              <label>
+                Horário desta refeição
+                <input
+                  type="time"
+                  value={mealTime}
+                  onChange={(e) => setMealTime(e.target.value)}
+                />
+              </label>
               <Button
                 onClick={() =>
                   save("meals", {
                     date: today(),
-                    name: "Refeição sugerida",
-                    time: new Intl.DateTimeFormat("pt-BR", {
-                      timeZone: "America/Sao_Paulo",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }).format(new Date()),
+                    name: meal,
+                    time: mealTime,
                     items: items.map((x) => ({ foodId: x.id, grams: x.grams })),
                   })
                 }
               >
-                Registrar esta refeição
+                Registrar como {meal.toLowerCase()}
               </Button>
             </div>
           )}

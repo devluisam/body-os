@@ -15,6 +15,10 @@ import {
   composition,
   schemas,
   mealIdea,
+  mealPlan,
+  slotAt,
+  MEAL_SLOTS,
+  targets,
 } from "../lib/body.ts";
 const empty = () =>
   Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as Data;
@@ -88,4 +92,82 @@ test("planner uses available food without forcing missing beans", () => {
   const result = mealIdea("peixe arroz vinagrete", d);
   assert.equal(result.length, 3);
   assert.ok(result.every((r) => !r.name.includes("Feijão")));
+});
+test("the day is split into meals whose targets add up to the daily goal", () => {
+  const data = empty();
+  data.foods = FOOD_SEED;
+  const plan = mealPlan(data),
+    goal = targets(data);
+  assert.equal(plan.slots.length, MEAL_SLOTS.length);
+  assert.ok(
+    Math.abs(
+      plan.slots.reduce((a, s) => a + s.target.calories, 0) - goal.calories,
+    ) <= 5,
+  );
+  assert.equal(mealPlan(data, today(), "06:00").next?.name, MEAL_SLOTS[0].name);
+  assert.equal(mealPlan(data, today(), "19:00").next?.name, "Jantar");
+});
+test("a logged meal marks its slot and shrinks what is left of it", () => {
+  const data = empty();
+  data.foods = FOOD_SEED;
+  data.meals = [
+    {
+      id: "m1",
+      date: today(),
+      name: "Café da manhã",
+      time: "07:30",
+      calories: 400,
+      protein: 30,
+      items: [],
+    },
+  ];
+  const slot = mealPlan(data).slots.find((s) => s.name === "Café da manhã")!;
+  assert.equal(slot.done, true);
+  assert.equal(slot.logged.calories, 400);
+  assert.equal(slot.remaining, slot.target.calories - 400);
+  assert.equal(
+    mealPlan(data, today(), "07:45").next?.name,
+    "Lanche da manhã",
+  );
+});
+test("meals without a plan name are counted by their clock time", () => {
+  const data = empty();
+  data.foods = FOOD_SEED;
+  data.meals = [
+    {
+      id: "m1",
+      date: today(),
+      name: "Refeição livre",
+      time: "20:10",
+      calories: 600,
+      protein: 40,
+      items: [],
+    },
+  ];
+  const plan = mealPlan(data);
+  assert.equal(plan.slots.find((s) => s.name === "Jantar")?.logged.calories, 600);
+  assert.equal(
+    plan.slots.reduce((a, s) => a + s.logged.calories, 0),
+    plan.eaten.calories,
+  );
+  assert.equal(slotAt("20:10").name, "Jantar");
+});
+test("the chosen meal changes what is suggested and how much of it", () => {
+  const data = empty();
+  data.foods = FOOD_SEED;
+  const input = "tenho ovos cozidos e arroz cozido";
+  assert.equal(
+    mealIdea(input, data, 5, false, "Café da manhã")[0].name,
+    "Ovos cozidos",
+  );
+  assert.equal(mealIdea(input, data)[0].name, "Arroz cozido");
+  const plate = "tenho frango grelhado, arroz cozido e azeite";
+  const kcal = (slot?: string) =>
+    mealIdea(plate, data, 5, false, slot).reduce((a, x) => a + x.calories, 0);
+  assert.ok(kcal("Almoço") > kcal("Café da manhã"));
+  assert.ok(kcal("Café da manhã") > kcal("Ceia"));
+  // Oils and condiments keep their small amount whatever the meal is.
+  const oil = (slot: string) =>
+    mealIdea(plate, data, 5, false, slot).find((x) => x.name === "Azeite")!;
+  assert.equal(oil("Almoço").grams, oil("Ceia").grams);
 });

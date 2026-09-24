@@ -37,6 +37,14 @@
   background: #34402d;
   color: var(--primary);
 }
+.meal-tabs {
+  max-width: 100%;
+}
+.meal-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 .small-tabs {
   margin: 0;
 }

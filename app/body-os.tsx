@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Data, Row, Table, today, latest } from "@/lib/body";
+import { Data, Draft, Table, latest } from "@/lib/body";
 import { RecordForm } from "./forms";
 import {
   enqueue,
@@ -60,7 +60,7 @@ export default function BodyOS() {
     [page, setPage] = useState("Visão geral"),
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState(""),
-    [initial, setInitial] = useState<Row | undefined>(),
+    [initial, setInitial] = useState<Draft | undefined>(),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [pending, setPending] = useState<Pending[]>([]),
@@ -134,7 +134,7 @@ export default function BodyOS() {
     location.hash = n;
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
-  function open(n: string, row?: Row) {
+  function open(n: string, row?: Draft) {
     setInitial(row);
     setModal(n);
   }
@@ -371,14 +371,14 @@ export default function BodyOS() {
       >
         <DialogContent className="body-dialog">
           <DialogTitle>
-            {initial ? "Editar" : "Registrar"} {modal.toLowerCase()}
+            {initial?.id ? "Editar" : "Registrar"} {modal.toLowerCase()}
           </DialogTitle>
           <DialogDescription>
             Atualize seus dados para acompanhar composição e performance.
           </DialogDescription>
           {data && modal && (
             <RecordForm
-              key={modal + (initial?.id ?? "")}
+              key={modal + (initial?.id ?? initial?.name ?? "")}
               kind={modal}
               data={data}
               save={save}

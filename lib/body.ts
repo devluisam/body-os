@@ -27,6 +27,7 @@ export type Table = (typeof TABLES)[number];
 // Flexible payloads are validated by table-specific schemas before persistence.
 export type Row = { id: string; date: string; [key: string]: any };
 export type Data = Record<Table, Row[]>;
+export type Draft = Partial<Row>;
 export const PHASES = [
   "Redução de gordura",
   "Manutenção",
@@ -446,28 +447,146 @@ export const FOOD_SEED = [
         "Valor inicial aproximado por 100 g/ml; confirme o preparo e rótulo. Sódio não informado.",
     }) as Row,
 );
+export const MEAL_SLOTS = [
+  {
+    name: "Café da manhã",
+    time: "07:00",
+    share: 0.22,
+    prefer: /ovo|aveia|tapioca|pao|\bmaca\b|banana|mamao|iogurte|leite|queijo|whey|manteiga|suco/,
+    note: "Comece com proteína. O carboidrato acompanha o que você vai fazer de manhã.",
+  },
+  {
+    name: "Lanche da manhã",
+    time: "10:00",
+    share: 0.1,
+    prefer: /banana|\bmaca\b|mamao|iogurte|whey|queijo|aveia|ovo/,
+    note: "Lanche pequeno: uma fruta e uma fonte de proteína resolvem.",
+  },
+  {
+    name: "Almoço",
+    time: "12:30",
+    share: 0.3,
+    prefer: /arroz|feijao|frango|carne|peixe|macarrao|batata|salada|vinagrete|azeite/,
+    note: "Prato principal do dia: proteína, carboidrato e salada.",
+  },
+  {
+    name: "Lanche da tarde",
+    time: "16:00",
+    share: 0.1,
+    prefer: /banana|\bmaca\b|mamao|iogurte|whey|tapioca|pao|aveia/,
+    note: "Antes do treino, carboidrato de digestão fácil costuma cair melhor.",
+  },
+  {
+    name: "Jantar",
+    time: "20:00",
+    share: 0.23,
+    prefer: /frango|peixe|carne|ovo|salada|vinagrete|arroz|batata|legume/,
+    note: "Proteína e vegetais. Ajuste o carboidrato ao treino do dia.",
+  },
+  {
+    name: "Ceia",
+    time: "22:00",
+    share: 0.05,
+    prefer: /iogurte|queijo|whey|leite|ovo/,
+    note: "Opcional. Só se ainda faltar proteína no dia.",
+  },
+] as const;
+export type MealSlot = (typeof MEAL_SLOTS)[number];
+const minutes = (t: string) => {
+  const [h, m] = String(t || "00:00")
+    .split(":")
+    .map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+export function nowTime() {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
+}
+// Meals keep the name chosen when they were logged; older or free meals fall
+// back to the slot closest to their clock time, so nothing leaves the day.
+export function slotAt(time = nowTime()): MealSlot {
+  return MEAL_SLOTS.reduce((best, s) =>
+    Math.abs(minutes(s.time) - minutes(time)) <
+    Math.abs(minutes(best.time) - minutes(time))
+      ? s
+      : best,
+  );
+}
+export function mealPlan(
+  data: Data,
+  date = today(),
+  clock = date === today() ? nowTime() : "23:59",
+) {
+  const t = targets(data),
+    meals = data.meals.filter((x) => x.date === date),
+    grouped = new Map<string, Row[]>(MEAL_SLOTS.map((s) => [s.name, []]));
+  for (const meal of meals) {
+    const slot =
+      MEAL_SLOTS.find((s) => s.name === meal.name) ?? slotAt(meal.time);
+    grouped.get(slot.name)!.push(meal);
+  }
+  const slots = MEAL_SLOTS.map((s) => {
+    const rows = grouped
+      .get(s.name)!
+      .sort((a, b) => String(a.time).localeCompare(String(b.time)));
+    const logged = macros(rows),
+      target = {
+        calories: Math.round(t.calories * s.share),
+        protein: Math.round(t.protein * s.share),
+      };
+    return {
+      ...s,
+      meals: rows,
+      logged,
+      target,
+      done: rows.length > 0,
+      remaining: Math.round(target.calories - logged.calories),
+    };
+  });
+  const eaten = macros(meals),
+    pending = slots.filter((s) => !s.done);
+  return {
+    date,
+    slots,
+    meals,
+    eaten,
+    goal: t,
+    remaining: Math.round(t.calories - eaten.calories),
+    next:
+      pending.find((s) => minutes(s.time) >= minutes(clock)) ??
+      pending[pending.length - 1] ??
+      null,
+  };
+}
 export function mealIdea(
   available: string,
   data: Data,
   hunger = 5,
   training = false,
+  slotName?: string,
 ) {
   const norm = (s: string) =>
     s
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[̀-ͯ]/g, "")
       .toLowerCase();
   const input = norm(available).replace(/(?:nao (?:tem|tenho)|sem)\s+\S+/g, "");
+  const slot = MEAL_SLOTS.find((s) => s.name === slotName);
   const matched = data.foods.filter((f) =>
     input.includes(norm(f.name).split(" ")[0]),
   );
   const ranked = [...matched].sort((a, b) => {
-    const rank = (f: Row) =>
-      input.includes(norm(f.name))
-        ? 10
-        : /grelhado|cozido/.test(f.name)
-          ? 5
-          : 0;
+    const rank = (f: Row) => {
+      const n = norm(f.name);
+      return (
+        (input.includes(n) ? 10 : 0) +
+        (slot?.prefer.test(n) ? 6 : 0) +
+        (/grelhado|cozido/.test(n) ? 3 : 0)
+      );
+    };
     return rank(b) - rank(a) || a.name.localeCompare(b.name);
   });
   const unique = ranked.filter(
@@ -486,8 +605,9 @@ export function mealIdea(
       : remaining > 0 && remaining < 500
         ? 90
         : 120;
-  return unique.map((f) => {
-    const grams = /whey/i.test(f.name)
+  const sized = unique.map((f) => ({
+    f,
+    grams: /whey/i.test(f.name)
       ? 30
       : /queijo/i.test(f.name)
         ? 40
@@ -499,7 +619,25 @@ export function mealIdea(
               ? 80
               : f.carbs > 20
                 ? carbPortion
-                : 100;
+                : 100,
+  }));
+  // With a slot chosen, the portions answer that meal's share of the day
+  // instead of the whole day. Condiments and oils keep their small amount.
+  const budget = slot
+    ? Math.max(
+        120,
+        (() => {
+          const s = mealPlan(data).slots.find((x) => x.name === slot.name)!;
+          return s.target.calories - s.logged.calories;
+        })(),
+      )
+    : null;
+  const total = sized.reduce((a, s) => a + foodMacros(s.f, s.grams).calories, 0);
+  const factor =
+    budget && total ? Math.min(1.6, Math.max(0.5, budget / total)) : 1;
+  return sized.map(({ f, grams: base }) => {
+    const grams =
+      f.fat >= 50 ? base : Math.max(10, Math.round((base * factor) / 5) * 5);
     return { ...f, name: f.name, foodId: f.id, grams, ...foodMacros(f, grams) };
   });
 }

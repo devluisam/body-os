@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   Data,
-  Row,
+  Draft,
   Table,
   today,
   PHASES,
@@ -14,6 +14,8 @@ import {
   foodMacros,
   macros,
   mealIdea,
+  slotAt,
+  MEAL_SLOTS,
 } from "@/lib/body";
 export type Save = (
   table: Table,
@@ -161,7 +163,7 @@ export function RecordForm({
   data: Data;
   save: Save;
   busy: boolean;
-  initial?: Row;
+  initial?: Draft;
 }) {
   const [mode, setMode] = useState("Jiu-Jitsu");
   if (kind === "Treino")
@@ -328,7 +330,7 @@ export function MealForm({
   data: Data;
   save: Save;
   busy: boolean;
-  initial?: Row;
+  initial?: Draft;
 }) {
   const [items, setItems] = useState<{ foodId: string; grams: number }[]>(
       initial?.items?.map((x: any) => ({
@@ -360,7 +362,7 @@ export function MealForm({
         e.preventDefault();
         const f = new FormData(e.currentTarget);
         save("meals", {
-          ...(initial ? { id: initial.id } : {}),
+          ...(initial?.id ? { id: initial.id } : {}),
           date: f.get("date"),
           time: f.get("time"),
           name: f.get("name"),
@@ -371,15 +373,8 @@ export function MealForm({
       <div className="form-grid">
         <label>
           Refeição
-          <select name="name" defaultValue={initial?.name ?? "Almoço"}>
-            {[
-              "Café da manhã",
-              "Almoço",
-              "Lanche",
-              "Jantar",
-              "Ceia",
-              "Refeição livre",
-            ].map((n) => (
+          <select name="name" defaultValue={initial?.name ?? slotAt().name}>
+            {[...MEAL_SLOTS.map((s) => s.name), "Refeição livre"].map((n) => (
               <option key={n}>{n}</option>
             ))}
           </select>
