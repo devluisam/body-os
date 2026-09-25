@@ -1,0 +1,573 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T00:27:24.024Z",
+  "title": "Design System: BODY OS",
+  "extensions": {
+    "colorMeta": {
+      "verde-sinal": {
+        "role": "primary",
+        "displayName": "Verde-Sinal",
+        "canonical": "#c3f576",
+        "oklch": "oklch(90.9% 0.165 127.2)",
+        "tonalRamp": [
+          "oklch(15% 0.165 127.2)",
+          "oklch(26.4% 0.165 127.2)",
+          "oklch(37.9% 0.165 127.2)",
+          "oklch(49.3% 0.165 127.2)",
+          "oklch(60.7% 0.165 127.2)",
+          "oklch(72.1% 0.165 127.2)",
+          "oklch(83.6% 0.165 127.2)",
+          "oklch(95% 0.165 127.2)"
+        ]
+      },
+      "tinta-musgo": {
+        "role": "neutral",
+        "displayName": "Tinta-Musgo",
+        "canonical": "#18210d",
+        "oklch": "oklch(23.3% 0.038 128.8)",
+        "tonalRamp": [
+          "oklch(15% 0.038 128.8)",
+          "oklch(26.4% 0.038 128.8)",
+          "oklch(37.9% 0.038 128.8)",
+          "oklch(49.3% 0.038 128.8)",
+          "oklch(60.7% 0.038 128.8)",
+          "oklch(72.1% 0.038 128.8)",
+          "oklch(83.6% 0.038 128.8)",
+          "oklch(95% 0.038 128.8)"
+        ]
+      },
+      "carvao-verde": {
+        "role": "neutral",
+        "displayName": "Carvão Verde",
+        "canonical": "#101412",
+        "oklch": "oklch(18.6% 0.007 164.1)",
+        "tonalRamp": [
+          "oklch(15% 0.007 164.1)",
+          "oklch(26.4% 0.007 164.1)",
+          "oklch(37.9% 0.007 164.1)",
+          "oklch(49.3% 0.007 164.1)",
+          "oklch(60.7% 0.007 164.1)",
+          "oklch(72.1% 0.007 164.1)",
+          "oklch(83.6% 0.007 164.1)",
+          "oklch(95% 0.007 164.1)"
+        ]
+      },
+      "carvao-lateral": {
+        "role": "neutral",
+        "displayName": "Carvão Lateral",
+        "canonical": "#141915",
+        "oklch": "oklch(20.7% 0.011 151.2)",
+        "tonalRamp": [
+          "oklch(15% 0.011 151.2)",
+          "oklch(26.4% 0.011 151.2)",
+          "oklch(37.9% 0.011 151.2)",
+          "oklch(49.3% 0.011 151.2)",
+          "oklch(60.7% 0.011 151.2)",
+          "oklch(72.1% 0.011 151.2)",
+          "oklch(83.6% 0.011 151.2)",
+          "oklch(95% 0.011 151.2)"
+        ]
+      },
+      "grafite-folha": {
+        "role": "neutral",
+        "displayName": "Grafite Folha",
+        "canonical": "#191e1b",
+        "oklch": "oklch(22.9% 0.009 159.3)",
+        "tonalRamp": [
+          "oklch(15% 0.009 159.3)",
+          "oklch(26.4% 0.009 159.3)",
+          "oklch(37.9% 0.009 159.3)",
+          "oklch(49.3% 0.009 159.3)",
+          "oklch(60.7% 0.009 159.3)",
+          "oklch(72.1% 0.009 159.3)",
+          "oklch(83.6% 0.009 159.3)",
+          "oklch(95% 0.009 159.3)"
+        ]
+      },
+      "superficie-botao": {
+        "role": "neutral",
+        "displayName": "Superfície de Botão",
+        "canonical": "#252d27",
+        "oklch": "oklch(28.7% 0.016 152.9)",
+        "tonalRamp": [
+          "oklch(15% 0.016 152.9)",
+          "oklch(26.4% 0.016 152.9)",
+          "oklch(37.9% 0.016 152.9)",
+          "oklch(49.3% 0.016 152.9)",
+          "oklch(60.7% 0.016 152.9)",
+          "oklch(72.1% 0.016 152.9)",
+          "oklch(83.6% 0.016 152.9)",
+          "oklch(95% 0.016 152.9)"
+        ]
+      },
+      "borda-musgo": {
+        "role": "neutral",
+        "displayName": "Borda Musgo",
+        "canonical": "#2b332d",
+        "oklch": "oklch(31.1% 0.015 153)",
+        "tonalRamp": [
+          "oklch(15% 0.015 153)",
+          "oklch(26.4% 0.015 153)",
+          "oklch(37.9% 0.015 153)",
+          "oklch(49.3% 0.015 153)",
+          "oklch(60.7% 0.015 153)",
+          "oklch(72.1% 0.015 153)",
+          "oklch(83.6% 0.015 153)",
+          "oklch(95% 0.015 153)"
+        ]
+      },
+      "borda-campo": {
+        "role": "neutral",
+        "displayName": "Borda de Campo",
+        "canonical": "#303a32",
+        "oklch": "oklch(33.6% 0.019 151.1)",
+        "tonalRamp": [
+          "oklch(15% 0.019 151.1)",
+          "oklch(26.4% 0.019 151.1)",
+          "oklch(37.9% 0.019 151.1)",
+          "oklch(49.3% 0.019 151.1)",
+          "oklch(60.7% 0.019 151.1)",
+          "oklch(72.1% 0.019 151.1)",
+          "oklch(83.6% 0.019 151.1)",
+          "oklch(95% 0.019 151.1)"
+        ]
+      },
+      "selecao-musgo": {
+        "role": "neutral",
+        "displayName": "Seleção Musgo",
+        "canonical": "#273021",
+        "oklch": "oklch(29.6% 0.029 133.2)",
+        "tonalRamp": [
+          "oklch(15% 0.029 133.2)",
+          "oklch(26.4% 0.029 133.2)",
+          "oklch(37.9% 0.029 133.2)",
+          "oklch(49.3% 0.029 133.2)",
+          "oklch(60.7% 0.029 133.2)",
+          "oklch(72.1% 0.029 133.2)",
+          "oklch(83.6% 0.029 133.2)",
+          "oklch(95% 0.029 133.2)"
+        ]
+      },
+      "selecao-aba": {
+        "role": "neutral",
+        "displayName": "Seleção de Aba",
+        "canonical": "#34402d",
+        "oklch": "oklch(35.5% 0.036 134.2)",
+        "tonalRamp": [
+          "oklch(15% 0.036 134.2)",
+          "oklch(26.4% 0.036 134.2)",
+          "oklch(37.9% 0.036 134.2)",
+          "oklch(49.3% 0.036 134.2)",
+          "oklch(60.7% 0.036 134.2)",
+          "oklch(72.1% 0.036 134.2)",
+          "oklch(83.6% 0.036 134.2)",
+          "oklch(95% 0.036 134.2)"
+        ]
+      },
+      "faixa-destaque": {
+        "role": "neutral",
+        "displayName": "Faixa de Destaque",
+        "canonical": "#24301e",
+        "oklch": "oklch(29.2% 0.036 135.5)",
+        "tonalRamp": [
+          "oklch(15% 0.036 135.5)",
+          "oklch(26.4% 0.036 135.5)",
+          "oklch(37.9% 0.036 135.5)",
+          "oklch(49.3% 0.036 135.5)",
+          "oklch(60.7% 0.036 135.5)",
+          "oklch(72.1% 0.036 135.5)",
+          "oklch(83.6% 0.036 135.5)",
+          "oklch(95% 0.036 135.5)"
+        ]
+      },
+      "borda-destaque": {
+        "role": "neutral",
+        "displayName": "Borda de Destaque",
+        "canonical": "#34482a",
+        "oklch": "oklch(37.6% 0.055 135.7)",
+        "tonalRamp": [
+          "oklch(15% 0.055 135.7)",
+          "oklch(26.4% 0.055 135.7)",
+          "oklch(37.9% 0.055 135.7)",
+          "oklch(49.3% 0.055 135.7)",
+          "oklch(60.7% 0.055 135.7)",
+          "oklch(72.1% 0.055 135.7)",
+          "oklch(83.6% 0.055 135.7)",
+          "oklch(95% 0.055 135.7)"
+        ]
+      },
+      "texto-nevoa": {
+        "role": "neutral",
+        "displayName": "Texto Névoa",
+        "canonical": "#edf2ee",
+        "oklch": "oklch(95.6% 0.007 151.9)",
+        "tonalRamp": [
+          "oklch(15% 0.007 151.9)",
+          "oklch(26.4% 0.007 151.9)",
+          "oklch(37.9% 0.007 151.9)",
+          "oklch(49.3% 0.007 151.9)",
+          "oklch(60.7% 0.007 151.9)",
+          "oklch(72.1% 0.007 151.9)",
+          "oklch(83.6% 0.007 151.9)",
+          "oklch(95% 0.007 151.9)"
+        ]
+      },
+      "texto-liquen": {
+        "role": "neutral",
+        "displayName": "Texto Líquen",
+        "canonical": "#99a59e",
+        "oklch": "oklch(71% 0.017 160.4)",
+        "tonalRamp": [
+          "oklch(15% 0.017 160.4)",
+          "oklch(26.4% 0.017 160.4)",
+          "oklch(37.9% 0.017 160.4)",
+          "oklch(49.3% 0.017 160.4)",
+          "oklch(60.7% 0.017 160.4)",
+          "oklch(72.1% 0.017 160.4)",
+          "oklch(83.6% 0.017 160.4)",
+          "oklch(95% 0.017 160.4)"
+        ]
+      },
+      "carbo-ceu": {
+        "role": "secondary",
+        "displayName": "Céu de Carbo",
+        "canonical": "#84b9db",
+        "oklch": "oklch(76.1% 0.074 237.2)",
+        "tonalRamp": [
+          "oklch(15% 0.074 237.2)",
+          "oklch(26.4% 0.074 237.2)",
+          "oklch(37.9% 0.074 237.2)",
+          "oklch(49.3% 0.074 237.2)",
+          "oklch(60.7% 0.074 237.2)",
+          "oklch(72.1% 0.074 237.2)",
+          "oklch(83.6% 0.074 237.2)",
+          "oklch(95% 0.074 237.2)"
+        ]
+      },
+      "gordura-ambar": {
+        "role": "secondary",
+        "displayName": "Âmbar de Gordura",
+        "canonical": "#efa26b",
+        "oklch": "oklch(77.6% 0.116 55.6)",
+        "tonalRamp": [
+          "oklch(15% 0.116 55.6)",
+          "oklch(26.4% 0.116 55.6)",
+          "oklch(37.9% 0.116 55.6)",
+          "oklch(49.3% 0.116 55.6)",
+          "oklch(60.7% 0.116 55.6)",
+          "oklch(72.1% 0.116 55.6)",
+          "oklch(83.6% 0.116 55.6)",
+          "oklch(95% 0.116 55.6)"
+        ]
+      },
+      "treino-ouro": {
+        "role": "secondary",
+        "displayName": "Ouro de Treino",
+        "canonical": "#e0bb77",
+        "oklch": "oklch(81% 0.096 81.9)",
+        "tonalRamp": [
+          "oklch(15% 0.096 81.9)",
+          "oklch(26.4% 0.096 81.9)",
+          "oklch(37.9% 0.096 81.9)",
+          "oklch(49.3% 0.096 81.9)",
+          "oklch(60.7% 0.096 81.9)",
+          "oklch(72.1% 0.096 81.9)",
+          "oklch(83.6% 0.096 81.9)",
+          "oklch(95% 0.096 81.9)"
+        ]
+      },
+      "erro-salmao": {
+        "role": "error",
+        "displayName": "Salmão de Erro",
+        "canonical": "#ffada1",
+        "oklch": "oklch(82.4% 0.099 28.6)",
+        "tonalRamp": [
+          "oklch(15% 0.099 28.6)",
+          "oklch(26.4% 0.099 28.6)",
+          "oklch(37.9% 0.099 28.6)",
+          "oklch(49.3% 0.099 28.6)",
+          "oklch(60.7% 0.099 28.6)",
+          "oklch(72.1% 0.099 28.6)",
+          "oklch(83.6% 0.099 28.6)",
+          "oklch(95% 0.099 28.6)"
+        ]
+      },
+      "claro-fundo": {
+        "role": "neutral",
+        "displayName": "Fundo Claro",
+        "canonical": "#f3f5f2",
+        "oklch": "oklch(96.8% 0.004 134.8)",
+        "tonalRamp": [
+          "oklch(15% 0.004 134.8)",
+          "oklch(26.4% 0.004 134.8)",
+          "oklch(37.9% 0.004 134.8)",
+          "oklch(49.3% 0.004 134.8)",
+          "oklch(60.7% 0.004 134.8)",
+          "oklch(72.1% 0.004 134.8)",
+          "oklch(83.6% 0.004 134.8)",
+          "oklch(95% 0.004 134.8)"
+        ]
+      },
+      "claro-cartao": {
+        "role": "neutral",
+        "displayName": "Cartão Claro",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100% 0 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "claro-texto": {
+        "role": "neutral",
+        "displayName": "Texto Claro",
+        "canonical": "#17211a",
+        "oklch": "oklch(23.5% 0.02 154.2)",
+        "tonalRamp": [
+          "oklch(15% 0.02 154.2)",
+          "oklch(26.4% 0.02 154.2)",
+          "oklch(37.9% 0.02 154.2)",
+          "oklch(49.3% 0.02 154.2)",
+          "oklch(60.7% 0.02 154.2)",
+          "oklch(72.1% 0.02 154.2)",
+          "oklch(83.6% 0.02 154.2)",
+          "oklch(95% 0.02 154.2)"
+        ]
+      },
+      "claro-texto-suave": {
+        "role": "neutral",
+        "displayName": "Texto Suave Claro",
+        "canonical": "#5a6c5e",
+        "oklch": "oklch(51.2% 0.031 151.8)",
+        "tonalRamp": [
+          "oklch(15% 0.031 151.8)",
+          "oklch(26.4% 0.031 151.8)",
+          "oklch(37.9% 0.031 151.8)",
+          "oklch(49.3% 0.031 151.8)",
+          "oklch(60.7% 0.031 151.8)",
+          "oklch(72.1% 0.031 151.8)",
+          "oklch(83.6% 0.031 151.8)",
+          "oklch(95% 0.031 151.8)"
+        ]
+      },
+      "claro-borda": {
+        "role": "neutral",
+        "displayName": "Borda Clara",
+        "canonical": "#dce3d9",
+        "oklch": "oklch(90.8% 0.015 136.1)",
+        "tonalRamp": [
+          "oklch(15% 0.015 136.1)",
+          "oklch(26.4% 0.015 136.1)",
+          "oklch(37.9% 0.015 136.1)",
+          "oklch(49.3% 0.015 136.1)",
+          "oklch(60.7% 0.015 136.1)",
+          "oklch(72.1% 0.015 136.1)",
+          "oklch(83.6% 0.015 136.1)",
+          "oklch(95% 0.015 136.1)"
+        ]
+      },
+      "claro-verde": {
+        "role": "primary",
+        "displayName": "Verde Claro",
+        "canonical": "#3b671a",
+        "oklch": "oklch(46.5% 0.117 134.7)",
+        "tonalRamp": [
+          "oklch(15% 0.117 134.7)",
+          "oklch(26.4% 0.117 134.7)",
+          "oklch(37.9% 0.117 134.7)",
+          "oklch(49.3% 0.117 134.7)",
+          "oklch(60.7% 0.117 134.7)",
+          "oklch(72.1% 0.117 134.7)",
+          "oklch(83.6% 0.117 134.7)",
+          "oklch(95% 0.117 134.7)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "h1 da página; 34px ≥1500px, 25px ≤1100px, 28px no celular."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Valores de estatística (peso, média, readiness), com unidade ao lado em 14px."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "h2 de seção; 16px nos cabeçalhos de cartão."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Parágrafos e legendas em Texto Líquen."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Eyebrows, rótulos de navegação e faixas de destaque, em caixa alta."
+      }
+    },
+    "shadows": [
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "O sistema é plano: cartões e botões não têm sombra em repouso."
+      },
+      {
+        "name": "drawer-scrim",
+        "value": "0 0 0 100vmax #0008",
+        "purpose": "Escurece a página atrás da gaveta lateral no celular."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Feedback de pressão (scale 0.97, 160ms)."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "Anel de calorias e barras de macro deslizando até o novo valor (500ms)."
+      },
+      {
+        "name": "ease-drawer",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "Gaveta de navegação no celular (320ms)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "760px"
+      },
+      {
+        "name": "compact",
+        "value": "1100px"
+      },
+      {
+        "name": "wide",
+        "value": "1500px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal da tela; apenas uma por contexto.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg>Registrar peso</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 11px 16px; font: 600 14px Arial, Helvetica, sans-serif; background: #c3f576; color: #18210d; border: 1px solid #c3f576; border-radius: 7px; cursor: pointer; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), filter 150ms ease; } .ds-btn-primary:hover { filter: brightness(1.08); } .ds-btn-primary:focus-visible { outline: 2px solid #c3f576; outline-offset: 3px; } .ds-btn-primary:active { transform: scale(0.97); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ações secundárias dentro de cartões.",
+      "html": "<button class=\"ds-btn-secondary\">Registrar refeição</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 11px 16px; font: 600 14px Arial, Helvetica, sans-serif; background: #252d27; color: #edf2ee; border: 1px solid #2b332d; border-radius: 7px; cursor: pointer; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), filter 150ms ease; } .ds-btn-secondary:hover { filter: brightness(1.08); } .ds-btn-secondary:focus-visible { outline: 2px solid #c3f576; outline-offset: 3px; } .ds-btn-secondary:active { transform: scale(0.97); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo com rótulo acima; fundo mais escuro que o cartão.",
+      "html": "<label class=\"ds-field\">Peso sem kimono (kg)<input class=\"ds-input\" type=\"number\" value=\"84.2\"></label>",
+      "css": ".ds-field { display: grid; gap: 7px; font: 14px Arial, Helvetica, sans-serif; color: #b7c2ba; } .ds-input { width: 100%; padding: 11px 12px; font: inherit; background: #101412; color: #edf2ee; border: 1px solid #303a32; border-radius: 7px; } .ds-input:focus-visible { outline: 2px solid #c3f576; outline-offset: 3px; }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Número principal com unidade ao lado e legenda honesta.",
+      "html": "<div class=\"ds-stat\"><div class=\"ds-stat-title\">Peso atual</div><div class=\"ds-stat-value\">84,2<span>kg</span></div><small>Sem kimono · 2026-09-19</small></div>",
+      "css": ".ds-stat { background: #191e1b; border: 1px solid #2b332d; border-radius: 10px; padding: 19px 20px; font-family: Arial, Helvetica, sans-serif; color: #edf2ee; } .ds-stat-title { font-size: 14px; color: #b7c2ba; } .ds-stat-value { font-size: 34px; font-weight: 500; letter-spacing: -1px; line-height: 1.15; margin: 13px 0 5px; } .ds-stat-value span { font-size: 14px; color: #99a59e; letter-spacing: 0; margin-left: 7px; } .ds-stat small { font-size: 12px; color: #99a59e; }"
+    },
+    {
+      "name": "Phase Pill",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "Fase ou status atual.",
+      "html": "<span class=\"ds-pill\">Redução de gordura</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #465b34; border-radius: 20px; padding: 5px 10px; font: 12px Arial, Helvetica, sans-serif; color: #c3f576; white-space: nowrap; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Navegação lateral; item ativo em Verde-Sinal sobre musgo.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item is-active\">Visão geral</button><button class=\"ds-nav-item\">Alimentação</button><button class=\"ds-nav-item\">Treinos</button></nav>",
+      "css": ".ds-nav { display: grid; gap: 5px; width: 200px; padding: 12px; background: #141915; } .ds-nav-item { display: flex; align-items: center; gap: 12px; font: 14px Arial, Helvetica, sans-serif; text-align: left; border: 0; border-radius: 7px; background: none; color: #a5afa8; padding: 12px; cursor: pointer; transition: background-color 150ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); } .ds-nav-item:hover { background: #242d25; } .ds-nav-item:focus-visible { outline: 2px solid #c3f576; outline-offset: 3px; } .ds-nav-item:active { transform: scale(0.97); } .ds-nav-item.is-active { background: #273021; color: #c3f576; }"
+    },
+    {
+      "name": "Period Tabs",
+      "kind": "custom",
+      "refersTo": "tab-selected",
+      "description": "Seletor de período (30d/60d/90d); sem animação na troca.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab is-selected\">30d</button><button class=\"ds-tab\">60d</button><button class=\"ds-tab\">90d</button></div>",
+      "css": ".ds-tabs { display: inline-flex; gap: 4px; padding: 4px; background: #101412; border: 1px solid #2b332d; border-radius: 7px; } .ds-tab { background: none; border: 0; border-radius: 5px; padding: 7px 12px; font: 14px Arial, Helvetica, sans-serif; color: #99a59e; cursor: pointer; } .ds-tab:hover { color: #edf2ee; } .ds-tab:focus-visible { outline: 2px solid #c3f576; outline-offset: 3px; } .ds-tab.is-selected { background: #34402d; color: #c3f576; }"
+    },
+    {
+      "name": "Goal Strip",
+      "kind": "card",
+      "refersTo": "card-destaque",
+      "description": "Faixa de objetivo com ícone, rótulo em caixa alta e pill de fase.",
+      "html": "<div class=\"ds-goal\"><span class=\"ds-goal-icon\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><circle cx=\"12\" cy=\"12\" r=\"6\"/><circle cx=\"12\" cy=\"12\" r=\"2\"/></svg></span><div><div class=\"ds-goal-label\">SEU OBJETIVO PRINCIPAL</div><div class=\"ds-goal-text\">Reduzir gordura corporal preservando massa muscular.</div></div><span class=\"ds-goal-pill\">Redução de gordura</span></div>",
+      "css": ".ds-goal { display: flex; align-items: center; gap: 15px; background: linear-gradient(90deg, #24301e, #19221a); border: 1px solid #34482a; border-radius: 10px; padding: 19px 21px; font-family: Arial, Helvetica, sans-serif; color: #edf2ee; } .ds-goal-icon { display: grid; place-items: center; color: #c3f576; background: #354629; padding: 10px; border-radius: 8px; } .ds-goal-label { font-size: 12px; letter-spacing: 1px; color: #b4c2a6; } .ds-goal-text { font-size: 14px; font-weight: 500; margin-top: 3px; } .ds-goal-pill { margin-left: auto; border: 1px solid #465b34; border-radius: 20px; padding: 5px 10px; font-size: 12px; color: #c3f576; white-space: nowrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "O Painel do Atleta",
+    "overview": "O BODY OS é um instrumento de precisão, como o painel de um carro à noite. O fundo é um carvão esverdeado quase preto, os números aparecem grandes e com a unidade sempre ao lado, e um único verde-lima acende apenas o que pede atenção agora: a ação principal, o item ativo, a média que importa. Todo o resto fica em tons de musgo e líquen, recuando para que o dado apareça e a interface desapareça.\n\nO clima é calmo e focado. A densidade é moderada: poucos blocos por tela, cada um com um número principal e uma legenda honesta (\"Estimativa aproximada\", \"Sem kimono · 2026-09-19\"). A profundidade vem da variação de tom, não de sombras. Não há confete, conquistas ou alarme visual. Um valor ausente aparece como travessão, nunca como zero inventado.\n\nO visual rejeita três coisas: o app fitness genérico (laranja ou vermelho de academia, fotos de modelo sarado, frases de motivação agressivas), a gamificação (badges, sequências com fogo, mascotes) e o dashboard corporativo (muitos gráficos coloridos sem hierarquia).",
+    "keyCharacteristics": [
+      "Escuro por padrão, com tema claro equivalente em verde-oliva.",
+      "Um só acento (verde-sinal), usado com parcimônia.",
+      "Números como protagonistas, com a unidade em corpo menor e cor suave.",
+      "Superfícies planas separadas por borda de 1px e degraus de tom.",
+      "Pensado primeiro para o celular: alvos de toque de 44px, gaveta lateral e feedback de pressão."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "O verde-sinal marca apenas o que está ativo, selecionado ou é a próxima ação. Se ele aparecer em mais de um botão por bloco, um deles está errado.",
+        "section": "colors"
+      },
+      {
+        "name": "The Data-Only Color Rule",
+        "body": "Azul, âmbar e ouro existem apenas para distinguir séries e macros. Nunca decoram botões, fundos ou títulos.",
+        "section": "colors"
+      },
+      {
+        "name": "The Unit-Beside Rule",
+        "body": "Todo número grande vem com a unidade ao lado, menor e mais suave (kg, %, cm, kcal). Um número sem unidade é um número ambíguo.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Instrument Rule",
+        "body": "Nada flutua em repouso. Uma superfície se destaca porque é um tom mais clara ou tem um gradiente de destaque, nunca por causa de uma sombra.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do manter o Verde-Sinal como único acento, e apenas em ação primária, item ativo, foco e série principal.",
+      "Do mostrar cada número grande com a unidade ao lado, em 14px na cor Texto Líquen.",
+      "Do representar dados ausentes com travessão (\"—\") e uma legenda honesta, sem mostrar zero.",
+      "Do criar profundidade com degraus de tom e bordas de 1px (Borda Musgo).",
+      "Do garantir alvos de toque de 44px, hover só em (hover: hover) and (pointer: fine) e respeito a prefers-reduced-motion.",
+      "Do repetir cada token de cor no bloco [data-theme=\"light\"] ao criar uma nova superfície."
+    ],
+    "donts": [
+      "Don't usar laranja ou vermelho de academia, fotos de modelo ou frases motivacionais agressivas. O BODY OS não é um app fitness genérico.",
+      "Don't adicionar badges, sequências com fogo, confete, mascotes ou qualquer gamificação.",
+      "Don't encher uma tela com gráficos multicoloridos sem hierarquia, no estilo de dashboard corporativo.",
+      "Don't usar azul, âmbar ou ouro fora da codificação de dados.",
+      "Don't adicionar sombras a cartões ou botões em repouso.",
+      "Don't animar ações repetidas, como troca de aba, nem animar barras e anéis na montagem."
+    ]
+  }
+}
