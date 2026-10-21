@@ -94,3 +94,32 @@ test("offline queue survives loss of connection, isolates accounts and retains c
     "lock cached data after authentication rejection",
   );
 });
+test("an unchanged account answers 304 and keeps the local copy", async () => {
+  const data = Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as Data;
+  data.weight_logs = [{ id: "weight_logs-2026-10-01", date: "2026-10-01", weight: 84 }];
+  let full = 0,
+    conditional = 0,
+    owner = "athlete-etag";
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method === "POST") return Response.json({ ok: true });
+    const sent = new Headers(init?.headers).get("If-None-Match");
+    const headers = { "X-BodyOS-Owner": owner, ETag: `"v1-${owner}"` };
+    if (sent === `"v1-${owner}"`) {
+      conditional++;
+      return new Response(null, { status: 304, headers });
+    }
+    full++;
+    return Response.json(data, { headers });
+  };
+  const first = await synchronize();
+  assert.equal(first.changed, true);
+  const second = await synchronize();
+  assert.equal(second.changed, false);
+  assert.equal(conditional, 1);
+  assert.equal(second.cache.data.weight_logs[0].weight, 84);
+  // A different account never reuses this copy, even with a 304.
+  owner = "athlete-other";
+  const other = await synchronize();
+  assert.equal(other.cache.owner, "athlete-other");
+  assert.equal(full, 2);
+});

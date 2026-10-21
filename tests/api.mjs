@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-const url = "http://localhost:5173",
+// Point BODYOS_URL at a dev server started with BODYOS_STATE_DIR, never at real records.
+const url = process.env.BODYOS_URL ?? "http://localhost:5173",
   user = "body-os-test-" + Date.now(),
   headers = {
     "content-type": "application/json",
@@ -47,7 +48,7 @@ const meal = await save("meals", {
     { foodId: "food-7", grams: 80 },
   ],
 });
-let d = (await request()).body;
+let d = (await request("/api/data?scope=all")).body;
 assert.ok(Math.abs(d.meals[0].calories - 452.9) < 1e-8);
 assert.ok(Math.abs(d.meals[0].protein - 54.84) < 1e-8);
 assert.equal(d.meal_items.length, 3);
@@ -65,11 +66,11 @@ const concurrent = await Promise.all([
 assert.ok(concurrent.every((r) => [200, 409].includes(r.status)));
 assert.ok(concurrent.some((r) => r.status === 200));
 assert.equal((await request("/api/data", "POST", operation)).status, 200);
-d = (await request()).body;
+d = (await request("/api/data?scope=all")).body;
 assert.equal(d.meal_items.length, 1, "retry must not duplicate meal items");
 const stale = { ...operation, mutationId: crypto.randomUUID() };
 assert.equal((await request("/api/data", "POST", stale)).status, 409);
-d = (await request()).body;
+d = (await request("/api/data?scope=all")).body;
 assert.equal(
   d.meal_items.length,
   1,
@@ -157,8 +158,48 @@ const privateGet = await fetch(url + "/api/photos?id=" + photo.id, {
 });
 assert.equal(privateGet.status, 404);
 await request("/api/data", "DELETE", { table: "meals", id: meal });
-assert.equal((await request()).body.meal_items.length, 0);
+assert.equal((await request("/api/data?scope=all")).body.meal_items.length, 0);
 await request("/api/photos", "DELETE", { id: photo.id });
+// The minute-by-minute read leaves out derived rows; the export keeps them.
+await save("meals", { name: "Jantar", time: "20:00", items: [{ foodId: "food-0", grams: 100 }] });
+assert.equal((await request()).body.meal_items.length, 0);
+assert.equal((await request("/api/data?scope=all")).body.meal_items.length, 1);
+// Unchanged account: 304 with no body.
+const first = await fetch(url + "/api/data", { headers });
+const etag = first.headers.get("etag");
+assert.ok(etag);
+const again = await fetch(url + "/api/data", { headers: { ...headers, "if-none-match": etag } });
+assert.equal(again.status, 304);
+assert.equal((await again.text()).length, 0);
+assert.equal(again.headers.get("x-bodyos-owner"), encodeURIComponent(user));
+// Steps left out of a check-in stay unmeasured, never 0.
+const yesterday = new Date(Date.parse(date + "T12:00:00Z") - 86400000).toISOString().slice(0, 10);
+await save("daily_checkins", { date: yesterday, hours: 7, quality: 7, hunger: 5, energy: 6, stress: 3, soreness: 3, fatigue: 4 });
+d = (await request()).body;
+const noSteps = d.daily_checkins.find((x) => x.date === yesterday);
+assert.equal(noSteps.steps, undefined);
+assert.equal((await fetch(url + "/api/data", { headers: { ...headers, "if-none-match": etag } })).status, 200, "a write changes the fingerprint");
+// Closing a food day is one row per day.
+await save("nutrition_days", { complete: true });
+await save("nutrition_days", { complete: false });
+d = (await request()).body;
+assert.equal(d.nutrition_days.length, 1);
+assert.equal(d.nutrition_days[0].id, "nutrition_days-" + date);
+assert.equal(d.nutrition_days[0].complete, false);
+// The profile is edited in place and keeps its id; it cannot be deleted.
+const profileDate = d.users[0].date;
+await save("users", { date: profileDate, sex: "male", age: 19, height: 178, lactoseIntolerant: true, bjjDays: [1, 3, 5], bjjTime: "15:00", gymTime: "" });
+d = (await request()).body;
+assert.equal(d.users.length, 1);
+assert.equal(d.users[0].id, "profile");
+assert.equal(d.users[0].age, 19);
+assert.equal(d.users[0].gymTime, undefined);
+assert.equal((await request("/api/data", "DELETE", { table: "users", id: "profile" })).status, 400);
+assert.equal((await request("/api/data", "DELETE", { table: "settings", id: "profile-settings" })).status, 400);
+// Deleting a check-in also removes its sleep row.
+await request("/api/data", "DELETE", { table: "daily_checkins", id: "daily_checkins-" + yesterday });
+d = (await request()).body;
+assert.ok(!d.sleep_logs.some((x) => x.date === yesterday));
 console.log(
-  "PASS: seed, daily upsert, server-side meal macros, atomic items, check-in/sleep, BF, validation, owner isolation, CSRF, contextual chat, private photo upload/read/delete, meal cascade.",
+  "PASS: seed, daily upsert, server-side meal macros, atomic items, check-in/sleep, BF, validation, owner isolation, CSRF, contextual chat, private photo upload/read/delete, meal cascade, lean sync read and 304, unmeasured steps, closed food days, profile edit and delete guard, check-in cascade.",
 );

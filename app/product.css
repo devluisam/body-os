@@ -1188,3 +1188,733 @@ button:disabled:active {
     transition: none;
   }
 }
+
+/* ── Evolução 2026-10 ──────────────────────────────────────
+   Cores de série dos gráficos (somente dados), por tema. */
+:root {
+  --chart-weight: #7b8d77;
+  --chart-carb: #84b9db;
+  --chart-fat: #efa26b;
+  --sunken: #141915;
+}
+[data-theme="light"] {
+  --chart-weight: #8b9a86;
+  --chart-carb: #2f77a6;
+  --chart-fat: #b8622a;
+  --sunken: #eef2eb;
+}
+
+/* Gráfico SVG próprio. */
+.trend-chart {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.trend-chart,
+.home-grid > *,
+.bottom-grid > * {
+  /* Grid items default to min-width: auto and would grow with the SVG. */
+  min-width: 0;
+}
+.trend-plot {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+  border-radius: 7px;
+}
+.trend-plot svg {
+  display: block;
+  overflow: visible;
+}
+.trend-plot .grid-line {
+  stroke: var(--border);
+  stroke-dasharray: 3 5;
+}
+.trend-plot .cursor-line {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.trend-plot .axis-label {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.chart-tip {
+  position: absolute;
+  top: 6px;
+  translate: -50% 0;
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.chart-tip i,
+.chart-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chart-legend i.hollow {
+  border: 1.5px solid var(--chart-weight);
+  background: var(--card);
+}
+.chart-note {
+  display: block;
+  margin-top: 6px;
+}
+
+/* Painel de peso: o número, a idade dele e a base da média. */
+.weight-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.weight-panel .card-head {
+  margin-bottom: 0;
+}
+.weight-readout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 20px;
+  align-items: end;
+}
+.eyebrow {
+  font-size: 12px;
+  color: var(--muted);
+}
+.big-number {
+  display: block;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -1.4px;
+  line-height: 1.1;
+  margin: 4px 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+.big-number span,
+.weight-facts dd span {
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+.big-number.missing {
+  color: var(--muted);
+}
+.age {
+  font-size: 12px;
+  color: var(--muted);
+}
+.age.stale {
+  color: var(--foreground);
+}
+.age.stale::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--primary);
+  vertical-align: 1px;
+}
+.weight-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0;
+}
+.weight-facts > div {
+  padding: 12px 14px;
+  border-radius: 7px;
+  background: var(--sunken);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 2px;
+}
+.weight-facts dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.weight-facts dd {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.weight-facts dd.fact-note {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.weight-panel > .text-button {
+  align-self: flex-start;
+}
+
+/* Estado do dia alimentar. */
+.state-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.state-chip.em-andamento,
+.state-chip.incompleto {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
+  color: var(--foreground);
+}
+.state-chip.completo {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  color: var(--primary);
+}
+.day-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  margin-bottom: 18px;
+  padding: 16px 20px;
+}
+.day-status > div {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.day-status p {
+  max-width: 70ch;
+}
+.button.close-day {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  color: var(--primary);
+}
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.nutrition-card > .card-actions .button {
+  flex: 1 1 180px;
+}
+.card-foot {
+  margin: 12px 0 4px;
+}
+.card > .text-button + .text-button {
+  margin-left: 18px;
+}
+
+/* Leituras: observação, estimativa e sugestão nunca se confundem. */
+.insights ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.insights li {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.insights li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.insights .kind {
+  justify-self: start;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.insights p {
+  color: var(--foreground);
+  max-width: 75ch;
+}
+.insights li.estimate .kind {
+  border-style: dashed;
+  color: var(--foreground);
+}
+.insights li.suggestion .kind {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+  color: var(--primary);
+}
+.insights li.insufficient p {
+  color: var(--muted);
+}
+.insights li.insufficient .kind {
+  border-style: dotted;
+}
+.insights {
+  margin-bottom: 22px;
+}
+
+/* Formulários: escala por toque, campos opcionais, repetir. */
+.scale {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+.scale legend,
+.day-picker legend {
+  font-size: 14px;
+  color: #b7c2ba;
+  padding: 0;
+  margin-bottom: 7px;
+}
+.scale-options {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 4px;
+}
+.scale-options[data-count="10"] {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+}
+.scale-options label,
+.day-picker label {
+  display: block;
+  position: relative;
+}
+.scale-options input,
+.day-picker input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.scale-options span,
+.day-picker span {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  border: 1px solid var(--input);
+  border-radius: 7px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.scale-options input:checked + span,
+.day-picker input:checked + span {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 700;
+}
+.scale-options input:focus-visible + span,
+.day-picker input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.scale-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.optional {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.form-note {
+  font-size: 12px;
+}
+.form-hint {
+  font-size: 12px;
+  color: var(--foreground);
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--foreground);
+}
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+}
+.day-picker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.day-picker > div {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.day-picker span {
+  min-height: 44px;
+  font-size: 12px;
+}
+.more-fields {
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+.more-fields > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  list-style: none;
+  font-size: 14px;
+  color: var(--foreground);
+}
+.more-fields > summary::-webkit-details-marker {
+  display: none;
+}
+.more-fields > summary svg {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 200ms var(--ease-out);
+}
+.more-fields[open] > summary svg {
+  transform: rotate(180deg);
+}
+.more-fields[open] {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 4px;
+}
+.repeat-chip {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 40%, var(--border));
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: transform 160ms var(--ease-out);
+}
+.repeat-chip svg {
+  display: inline;
+  vertical-align: -2px;
+  margin-right: 4px;
+  color: var(--primary);
+}
+.repeat-chip small {
+  font-weight: 400;
+}
+.repeat-chip:active {
+  transform: scale(0.98);
+}
+.repeat-list {
+  display: grid;
+  gap: 8px;
+}
+.repeat-list > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.repeat-list > span svg {
+  display: inline;
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+/* Linhas com ações e itens ainda no aparelho. */
+.row-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.row-actions .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--muted);
+  border-radius: 7px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 400;
+  vertical-align: 2px;
+}
+.badge.pending {
+  border: 1px dashed var(--muted);
+  color: var(--muted);
+}
+.log-row.inactive p {
+  color: var(--muted);
+}
+.done-text {
+  color: var(--primary);
+}
+
+/* Navegação por dia em Alimentação. */
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.date-nav input {
+  width: auto;
+}
+.date-nav .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--card);
+}
+.food-db input[type="search"] {
+  margin: 12px 0;
+  max-width: 360px;
+}
+.inline-select select {
+  width: auto;
+  padding: 8px 10px;
+}
+.week-select {
+  max-width: 360px;
+}
+
+/* Estado de sincronização: um selo, não um cartão. */
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sync-status.pending,
+.sync-status.offline {
+  color: var(--foreground);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
+}
+.sync-status:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.spin {
+  animation: spin 900ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.conflict {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+.conflict-row {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.conflict pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Carregamento: a forma da tela, sem texto piscando. */
+.loading {
+  display: grid;
+  gap: 16px;
+}
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 16px;
+}
+.skeleton {
+  height: 120px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  animation: breathe 1.4s ease-in-out infinite;
+}
+.skeleton.tall {
+  height: 170px;
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Configurações: perfil e backup. */
+.profile-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.profile-facts dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.profile-facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+.file-button {
+  cursor: pointer;
+  position: relative;
+}
+.file-button:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.import-preview {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--sunken);
+}
+.import-preview h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.pill.warn {
+  color: var(--foreground);
+  border-style: dashed;
+}
+
+/* Tema claro dos componentes novos. */
+[data-theme="light"] .scale legend,
+[data-theme="light"] .day-picker legend {
+  color: #52634b;
+}
+[data-theme="light"] .date-nav .icon-button {
+  background: #fff;
+}
+
+@media (max-width: 760px) {
+  /* iOS dá zoom ao focar campos com fonte menor que 16 px. */
+  input,
+  select,
+  textarea,
+  .chat-input input {
+    font-size: 16px;
+  }
+  .weight-readout {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .big-number {
+    font-size: 30px;
+  }
+  .weight-facts dd {
+    font-size: 18px;
+  }
+  .day-status {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+  }
+  .day-status .button {
+    width: 100%;
+  }
+  .page-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .scale-options {
+    gap: 3px;
+  }
+  .scale-options span {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .date-nav {
+    width: 100%;
+  }
+  .date-nav input {
+    flex: 1;
+  }
+  .meal-head {
+    grid-template-columns: 1fr 1fr;
+  }
+  .meal-head > label:first-child,
+  .form-grid > label:has(select[name="phase"]) {
+    grid-column: 1 / -1;
+  }
+  .meal-row {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+  .meal-row .row-actions {
+    flex-direction: column;
+  }
+  .skeleton-row {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin,
+  .skeleton {
+    animation: none;
+  }
+  .scale-options span,
+  .more-fields > summary svg,
+  .repeat-chip {
+    transition: none;
+  }
+}

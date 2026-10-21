@@ -13,6 +13,15 @@ test("bridge authenticates and exposes only bounded chat with a fixed local mode
       const body = JSON.parse(init.body);
       assert.equal(body.model, "llama3.2:3b");
       assert.equal(body.options.num_predict, 700);
+      if (body.stream)
+        return new Response(
+          [
+            { message: { content: "o" }, done: false, eval_count: 1 },
+            { message: { content: "k" }, done: true, total_duration: 9 },
+          ]
+            .map((x) => JSON.stringify(x) + "\n")
+            .join(""),
+        );
       return Response.json({ message: { content: "ok" }, done: true });
     },
   });
@@ -54,6 +63,22 @@ test("bridge authenticates and exposes only bounded chat with a fixed local mode
     assert.equal(response.status, 200);
     assert.equal((await response.json()).message.content, "ok");
     assert.equal(called, 1);
+    // Streaming relays only text and the end marker, never upstream metadata.
+    const streamed = await fetch(url + "/api/chat", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        stream: true,
+        messages: [{ role: "user", content: "Hi" }],
+      }),
+    });
+    const lines = (await streamed.text())
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    assert.equal(lines.map((l) => l.message.content).join(""), "ok");
+    assert.equal(lines.at(-1).done, true);
+    assert.ok(lines.every((l) => !("eval_count" in l) && !("total_duration" in l)));
   } finally {
     server.closeAllConnections();
     await new Promise((r) => server.close(r));

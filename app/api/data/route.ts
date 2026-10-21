@@ -1,4 +1,13 @@
-import { db, owner, guard, put, readData, weekly, failure } from "@/lib/server";
+import {
+  db,
+  owner,
+  guard,
+  put,
+  readData,
+  readTables,
+  weekly,
+  failure,
+} from "@/lib/server";
 import {
   schemas,
   Table,
@@ -9,15 +18,41 @@ import {
   today,
   navyBF,
   profile,
+  canonicalId,
   type MealItemInput,
 } from "@/lib/body";
+// The app polls this route every minute. meal_items repeats what meals[].items
+// already carry, and old chat turns are only needed for a full export.
+const RECENT_CHATS = 30;
 export async function GET(req: Request) {
   try {
-    return Response.json(await weekly(owner(req), await readData(owner(req))), {
-      headers: {
-        "Cache-Control": "no-store",
-        "X-BodyOS-Owner": encodeURIComponent(owner(req)),
-      },
+    const user = owner(req),
+      data = await weekly(user, await readData(user));
+    if (new URL(req.url).searchParams.get("scope") !== "all") {
+      data.meal_items = [];
+      data.ai_conversations = [...data.ai_conversations]
+        .sort((a, b) =>
+          String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")),
+        )
+        .slice(0, RECENT_CHATS);
+    }
+    // A fingerprint of the response lets the minute-by-minute check answer
+    // "nothing changed" with an empty 304 instead of the whole history.
+    const body = JSON.stringify(data),
+      digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(user + "\n" + body),
+      ),
+      etag = `"${[...new Uint8Array(digest).slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("")}"`;
+    const headers = {
+      "Cache-Control": "no-store",
+      "X-BodyOS-Owner": encodeURIComponent(user),
+      ETag: etag,
+    };
+    if (req.headers.get("if-none-match") === etag)
+      return new Response(null, { status: 304, headers });
+    return new Response(body, {
+      headers: { ...headers, "Content-Type": "application/json" },
     });
   } catch (e) {
     return failure(e);
@@ -67,12 +102,7 @@ export async function POST(req: Request) {
     const data = { ...parsed.data, createdAt: new Date().toISOString() };
     if (table !== "competition_events" && data.date > today())
       throw Error("Não registre medições no futuro");
-    data.id =
-      table === "settings"
-        ? "profile-settings"
-        : ["weight_logs", "daily_checkins", "nutrition_targets"].includes(table)
-          ? `${table}-${data.date}`
-          : (data.id ?? crypto.randomUUID());
+    data.id = canonicalId(table, data);
     const statements: D1PreparedStatement[] = [];
     const write = (target: Table, row: Row) => {
       if (!mutationId) return put(target, user, row);
@@ -100,9 +130,9 @@ export async function POST(req: Request) {
       data._mutationId = mutationId;
     }
     if (table === "meals") {
-      const all = await readData(user);
+      const { foods } = await readTables(user, ["foods"]);
       data.items = data.items.map((item: MealItemInput) => {
-        const f = all.foods.find((x) => x.id === item.foodId);
+        const f = foods.find((x) => x.id === item.foodId);
         if (!f) throw Error("Alimento não encontrado");
         return {
           ...item,
@@ -144,7 +174,7 @@ export async function POST(req: Request) {
     } else if (table === "body_measurements") {
       if (data.abdomen <= data.neck)
         throw Error("Abdômen deve ser maior que pescoço");
-      const height = profile(await readData(user)).height;
+      const height = profile(await readTables(user, ["users"])).height;
       const bf = height ? navyBF(height, data.abdomen, data.neck) : null;
       statements.push(
         ...(bf === null
@@ -195,19 +225,37 @@ export async function DELETE(req: Request) {
     guard(req);
     const user = owner(req),
       { table, id } = (await req.json()) as { table: Table; id: string };
-    if (!TABLES.includes(table) || !schemas[table as Table])
+    // The profile and settings are edited, never deleted.
+    if (
+      !TABLES.includes(table) ||
+      !schemas[table as Table] ||
+      table === "users" ||
+      table === "settings"
+    )
       throw Error("Registro inválido");
-    await db()
-      .prepare(`DELETE FROM ${table} WHERE user_id=? AND id=?`)
-      .bind(user, id)
-      .run();
+    if (typeof id !== "string" || !id || id.length > 100)
+      throw Error("Registro inválido");
+    // Derived rows go in the same batch, so nothing is left half-deleted.
+    const statements = [
+      db()
+        .prepare(`DELETE FROM ${table} WHERE user_id=? AND id=?`)
+        .bind(user, id),
+    ];
     if (table === "meals")
-      await db()
-        .prepare(
-          "DELETE FROM meal_items WHERE user_id=? AND json_extract(payload,'$.mealId')=?",
-        )
-        .bind(user, id)
-        .run();
+      statements.push(
+        db()
+          .prepare(
+            "DELETE FROM meal_items WHERE user_id=? AND json_extract(payload,'$.mealId')=?",
+          )
+          .bind(user, id),
+      );
+    if (table === "daily_checkins")
+      statements.push(
+        db()
+          .prepare("DELETE FROM sleep_logs WHERE user_id=? AND id=?")
+          .bind(user, id.replace("daily_checkins-", "sleep-")),
+      );
+    await db().batch(statements);
     return Response.json({ ok: true });
   } catch (e) {
     return failure(e);

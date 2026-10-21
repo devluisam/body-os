@@ -61,6 +61,11 @@ export default defineConfig(async () => {
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
+        // BODYOS_STATE_DIR points tests and previews at a throwaway database,
+        // so they never write into the real local records in .wrangler/state.
+        ...(process.env.BODYOS_STATE_DIR
+          ? { persistState: { path: process.env.BODYOS_STATE_DIR } }
+          : {}),
         config: localBindingConfig,
       }),
     ],

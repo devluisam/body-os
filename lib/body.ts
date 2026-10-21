@@ -22,6 +22,8 @@ export const TABLES = [
   "weekly_reports",
   "ai_conversations",
   "settings",
+  // One row per day the athlete closed as complete; absence means "not confirmed".
+  "nutrition_days",
 ] as const;
 export type Table = (typeof TABLES)[number];
 // Flexible payloads are validated by table-specific schemas before persistence.
@@ -57,8 +59,23 @@ export function days(a: string, b: string) {
     (Date.parse(a + "T12:00:00Z") - Date.parse(b + "T12:00:00Z")) / 86400000,
   );
 }
-export const mean = (v: number[]) =>
-  v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+// Missing answers (undefined/null) are skipped, never averaged in as zero.
+export const mean = (values: (number | null | undefined)[]) => {
+  const v = values.filter(
+    (x): x is number => typeof x === "number" && Number.isFinite(x),
+  );
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+};
+// Accepts the comma the pt-BR keyboard types ("85,4") as well as a dot.
+export function parseDecimal(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const text = String(value ?? "")
+    .trim()
+    .replace(/\s/g, "")
+    .replace(",", ".");
+  if (!text || !/^-?\d*\.?\d+$/.test(text)) return null;
+  return Number(text);
+}
 export const fmt = (v: number | null | undefined, d = 1) =>
   v == null
     ? "—"
@@ -303,7 +320,14 @@ const n = (min = 0, max = 10000) =>
     z.coerce.number().finite().min(min).max(max),
   score = n(0, 10),
   text = z.string().max(3000),
-  optional = n().optional();
+  optional = n().optional(),
+  // Not measured stays undefined; it is never stored as 0.
+  maybe = (min: number, max: number) => n(min, max).optional(),
+  clockTime = z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional()
+    .or(z.literal("").transform(() => undefined));
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -369,12 +393,12 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     energy: score,
     stress: score,
     soreness: score,
-    motivation: score,
+    motivation: maybe(0, 10),
     fatigue: score,
-    performance: score,
-    steps: n(0, 80000),
-    bedtime: z.string().optional(),
-    waketime: z.string().optional(),
+    performance: maybe(0, 10),
+    steps: maybe(0, 80000),
+    bedtime: clockTime,
+    waketime: clockTime,
   }),
   water_logs: base.extend({ ml: n(50, 2000) }),
   jiujitsu_sessions: base.extend({
@@ -382,33 +406,34 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     rounds: n(0, 50),
     roundMinutes: n(1, 20),
     rpe: n(1, 10),
-    cardio: score,
-    strength: score,
-    technique: score,
-    energy: score,
-    recovery: score,
+    cardio: maybe(0, 10),
+    strength: maybe(0, 10),
+    technique: maybe(0, 10),
+    energy: maybe(0, 10),
+    recovery: maybe(0, 10),
     performance: score,
-    fatigueAt: n(0, 300),
-    hr: n(0, 240),
-    techniques: text,
+    fatigueAt: maybe(1, 300),
+    hr: maybe(30, 240),
+    techniques: text.optional(),
   }),
-  gym_sessions: base.extend({ duration: n(1, 240), notes: text }),
+  gym_sessions: base.extend({ duration: n(1, 240), notes: text.optional() }),
   gym_exercises: base.extend({
     exercise: z.string().min(1).max(150),
     load: n(0, 500),
     reps: n(1, 100),
     sets: n(1, 30),
     rir: n(0, 10),
-    rpe: n(1, 10),
+    // RIR already describes effort; RPE is an optional second reading.
+    rpe: maybe(1, 10),
   }),
   cardio_sessions: base.extend({
     mode: z.enum(["Bike", "Esteira", "Corrida", "Caminhada"]),
     type: z.enum(["Zona 2", "Intervalado", "Livre"]),
     duration: n(1, 300),
-    hr: n(0, 240),
-    distance: n(0, 100),
-    speed: n(0, 50),
-    incline: n(0, 30),
+    hr: maybe(30, 240),
+    distance: maybe(0.01, 100),
+    speed: maybe(0.1, 50),
+    incline: maybe(0, 30),
     rpe: n(1, 10),
   }),
   competition_events: base.extend({
@@ -437,8 +462,21 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     bfGoal: n(8, 40).nullable(),
     theme: z.enum(["dark", "light"]),
   }),
+  users: base.extend({
+    sex: z.enum(["male", "female"]),
+    age: n(14, 90),
+    height: n(120, 230),
+    lactoseIntolerant: z.boolean(),
+    bjjDays: z.array(z.number().int().min(0).max(6)).max(7),
+    bjjTime: clockTime,
+    gymTime: clockTime,
+  }),
+  nutrition_days: base.extend({
+    complete: z.boolean(),
+    note: z.string().max(300).optional(),
+  }),
   goals: base.extend({
-    title: text,
+    title: z.string().min(1).max(300),
     type: z.enum(["principal", "esportivo", "temporário"]),
     active: z.boolean(),
   }),
@@ -724,4 +762,123 @@ export function mealIdea(
       f.fat >= 50 ? base : Math.max(10, Math.round((base * factor) / 5) * 5);
     return { ...f, name: f.name, foodId: f.id, grams, ...foodMacros(f, grams) };
   });
+}
+// One id per day for daily records, so saving again (or replaying offline)
+// updates the day instead of duplicating it.
+const DAILY: Table[] = [
+  "weight_logs",
+  "daily_checkins",
+  "nutrition_targets",
+  "nutrition_days",
+];
+export function canonicalId(table: Table, data: Partial<Row>) {
+  return table === "settings"
+    ? "profile-settings"
+    : table === "users"
+      ? "profile"
+      : DAILY.includes(table)
+        ? `${table}-${data.date}`
+        : data.id || crypto.randomUUID();
+}
+// "hoje", "ontem", "há 5 dias": how old a reading is matters as much as its value.
+export function ago(date: string, from = today()) {
+  const n = days(from, date);
+  return n <= 0 ? "hoje" : n === 1 ? "ontem" : `há ${n} dias`;
+}
+// What the scale data supports right now, with the basis spelled out.
+export function weightStatus(rows: Row[], asOf = today()) {
+  const last = latest(rows.filter((r) => r.date <= asOf));
+  const week = range(rows, shift(asOf, -6), asOf),
+    previous = range(rows, shift(asOf, -13), shift(asOf, -7));
+  return {
+    last: last ?? null,
+    age: last ? days(asOf, last.date) : null,
+    reference: !!last?.source,
+    week: week.length,
+    previous: previous.length,
+    mean: week.length >= 3 ? mean(week.map((x) => x.weight)) : null,
+    trend: weightTrend(rows, asOf),
+  };
+}
+export type DayState = "vazio" | "em andamento" | "incompleto" | "completo";
+// A day of food is only "completo" when the athlete says so. Until then the
+// totals are a floor, not what was eaten.
+export function dayStatus(data: Data, date = today()) {
+  const meals = data.meals.filter((x) => x.date === date),
+    mark = data.nutrition_days.find((x) => x.date === date);
+  const state: DayState = mark?.complete
+    ? "completo"
+    : !meals.length
+      ? "vazio"
+      : date === today()
+        ? "em andamento"
+        : "incompleto";
+  return { date, meals: meals.length, state, complete: state === "completo" };
+}
+export function report(data: Data, end: string) {
+  const start = shift(end, -6),
+    meals = range(data.meals, start, end),
+    check = range(data.daily_checkins, start, end),
+    bjj = range(data.jiujitsu_sessions, start, end);
+  const loggedDays = [...new Set(meals.map((x) => x.date))].sort();
+  const confirmed = loggedDays.filter((d) => dayStatus(data, d).complete);
+  // Averages use the days confirmed complete when there are any; otherwise
+  // they fall back to every logged day and say so (foodBasis).
+  const basis = confirmed.length ? confirmed : loggedDays;
+  const totals = basis.map((d) => macros(meals.filter((x) => x.date === d)));
+  const metrics = [...range(data.body_metrics, start, end)].sort((a, b) =>
+    b.date.localeCompare(a.date),
+  );
+  const measures = [...range(data.body_measurements, start, end)].sort((a, b) =>
+    b.date.localeCompare(a.date),
+  );
+  const bf = metrics[0],
+    w = bf ? data.weight_logs.find((x) => x.date === bf.date) : undefined;
+  // Same rule as the home screen: a week's mean needs 3 weigh-ins.
+  const weekMean = (to: string) =>
+    range(data.weight_logs, shift(to, -6), to).length >= 3
+      ? weightMean(data.weight_logs, to)
+      : null;
+  return {
+    id: "week-" + end,
+    date: end,
+    start,
+    weight: weekMean(end),
+    weighIns: range(data.weight_logs, start, end).length,
+    previousWeight: weekMean(shift(end, -7)),
+    waist: measures[0]?.waist ?? null,
+    bf: bf?.bf ?? null,
+    lean: bf && w ? w.weight * (1 - bf.bf / 100) : null,
+    bjjPerformance: mean(bjj.map((x) => x.performance)),
+    cardioScore: mean(bjj.map((x) => x.cardio)),
+    strengthScore: mean(bjj.map((x) => x.strength)),
+    calories: mean(totals.map((x) => x.calories)),
+    protein: mean(totals.map((x) => x.protein)),
+    carbs: mean(totals.map((x) => x.carbs)),
+    fat: mean(totals.map((x) => x.fat)),
+    mealDays: loggedDays.length,
+    completeDays: confirmed.length,
+    foodBasis: confirmed.length ? "completos" : "registrados",
+    checkins: check.length,
+    sleep: mean(check.map((x) => x.hours)),
+    hunger: mean(check.map((x) => x.hunger)),
+    energy: mean(check.map((x) => x.energy)),
+    stress: mean(check.map((x) => x.stress)),
+    bjj: bjj.length,
+    gym: range(data.gym_sessions, start, end).length,
+    cardio: range(data.cardio_sessions, start, end).length,
+    conclusion: assessment(
+      Object.fromEntries(
+        TABLES.map((t) => [t, (data[t] ?? []).filter((x) => x.date <= end)]),
+      ) as Data,
+      end,
+    ),
+    consistency: Math.round(
+      (100 *
+        (Math.min(7, range(data.weight_logs, start, end).length) +
+          loggedDays.length +
+          Math.min(7, check.length))) /
+        (7 * 3),
+    ),
+  } as Row;
 }

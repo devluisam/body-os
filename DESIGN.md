@@ -153,6 +153,11 @@ O visual rejeita três coisas: o app fitness genérico (laranja ou vermelho de a
 - **Texto Líquen** (`texto-liquen`): legendas, unidades, parágrafos e rótulos secundários.
 - **Salmão de Erro** (`erro-salmao`, token `--danger`): mensagens de erro e o texto do botão de confirmação destrutiva. No tema claro vira #a3382a.
 
+### Séries de gráfico e superfícies auxiliares
+- `--chart-weight` (#7b8d77 / claro #8b9a86): peso diário. `--chart-carb` (#84b9db / claro #2f77a6) e `--chart-fat` (#efa26b / claro #b8622a): carboidrato, gordura e BF. A média de 7 dias usa sempre `--primary`.
+- `--sunken` (#141915 / claro #eef2eb): caixas de fato secundário dentro de um cartão (média e tendência do peso, prévia de restauração).
+- Rótulo de campo: #b7c2ba no escuro, #52634b no claro.
+
 ### Tema claro
 Os tokens `claro-*` substituem os neutros em `[data-theme="light"]`. O acento passa a ser o **Verde Claro** (`claro-verde`) com texto branco, porque o verde-sinal perde contraste sobre fundo claro. Os destaques viram gradientes de pistache (#e5efdc → #f2f6ed).
 
@@ -175,6 +180,8 @@ Os tokens `claro-*` substituem os neutros em `[data-theme="light"]`. O acento pa
 - **Body** (`body`): parágrafos e legendas longas, em Texto Líquen. A interface usa 14px em quase tudo; a base do documento é 16px com altura de linha 1.5.
 - **Label** (`label`): rótulos curtos acima de um título ("Próximo registro", "Fase atual"), em 12px, caixa normal e sem tracking. Não há eyebrows em caixa alta acima dos títulos; o contexto de um cartão vai numa legenda abaixo do h2 (`small`), como em "Evolução corporal / Peso diário e média móvel de 7 dias".
 
+No celular, campos de formulário usam 16px: abaixo disso o Safari do iPhone dá zoom ao focar. É a única exceção à rampa acima.
+
 ### Named Rules
 **The Unit-Beside Rule.** Todo número grande vem com a unidade ao lado, menor e mais suave (kg, %, cm, kcal). Um número sem unidade é um número ambíguo. O inverso também vale: o travessão de valor ausente aparece sozinho, em Texto Líquen, sem unidade ("—", nunca "— %" ou "—/100").
 
@@ -182,7 +189,7 @@ Os tokens `claro-*` substituem os neutros em `[data-theme="light"]`. O acento pa
 
 O desktop tem uma barra lateral fixa de 240px (210px até 1100px), com a marca, a navegação e a fase atual no rodapé, e a área principal com margem igual à largura dela. Não há barra superior nem footer no desktop. O conteúdo fica num `main` de até 1500px, com padding de 40px 38px.
 
-A Visão geral segue esta ordem: cabeçalho (data, linha de status com a pesagem do dia e a contagem até o evento, e o objetivo), cartão Hoje, grade de 4 estatísticas, grade principal 1.65fr/1fr (gráfico e alimentação, com o gráfico crescendo até a altura da coluna vizinha), grade inferior de 3 colunas e a barra de registro rápido. As outras seções começam pelo h1 e por uma barra de ferramentas com a ação primária. O espaçamento entre blocos fica em torno de 22px e, dentro da grade de estatísticas, em 16px.
+A Visão geral segue esta ordem: cabeçalho (data, contagem até o evento e objetivo, com o selo de sincronização à direita), cartão Hoje, grade principal 1.65fr/1fr (painel de peso e alimentação de hoje), leituras dos dados, grade inferior de 3 colunas (treino, recuperação, evento ou composição) e a barra de registro rápido (só no desktop). As outras seções começam pelo h1 e por uma barra de ferramentas com a ação primária. O espaçamento entre blocos fica em torno de 22px e, dentro da grade de estatísticas, em 16px.
 
 A seção aberta vive no hash da URL (`#Alimentação`), que é a fonte da verdade: links diretos abrem a seção certa, e o voltar do navegador ou o gesto de voltar do iOS troca de seção.
 
@@ -237,6 +244,18 @@ O anel usa `conic-gradient` com a variável `--progress`: Verde-Sinal sobre um t
 ### Cartão Hoje (signature)
 É o primeiro bloco da Visão geral e mostra uma única ação: o próximo registro do dia, na ordem em que o dia acontece (pesagem da manhã, depois check-in, depois a próxima refeição do plano; com tudo feito, sugere registrar o treino). Tem ícone em quadrado oliva, o rótulo "Próximo registro", o título da ação, uma frase de contexto e, abaixo, o estado dos registros do dia em pills (Pesagem · Check-in · Refeições 2/6), com check verde quando feito e círculo vazado quando pendente. À direita ficam o único botão primário da tela e um link "Orientação do dia" para o Assistente. Usa o gradiente de destaque. No celular, o botão ocupa a largura toda, embaixo do texto.
 
+### Painel de peso (signature)
+O número da última pesagem em 34px, com a unidade ao lado e, abaixo, há quanto tempo foi feita ("hoje", "há 25 dias"). Com mais de 3 dias, a idade ganha um anel verde-sinal e o convite para pesar de novo. Ao lado, duas caixas rebaixadas: média de 7 dias e tendência semanal, cada uma com a base ("1 de 3 pesagens nesta semana"). Sem base, travessão. O gráfico SVG quebra a linha em intervalos de mais de 7 dias, desenha a referência informada como ponto vazado e só traça a média onde a janela tem 3 pesagens.
+
+### Leituras dos dados
+Lista sem cartões internos: cada item tem uma etiqueta de tipo (observação com borda sólida neutra, estimativa tracejada, sugestão em verde-sinal, dados insuficientes pontilhada com texto suave), o texto e a linha "Base: …". Nunca usa faixa lateral colorida.
+
+### Estado do dia e sincronização
+Cápsulas de 12px: "Sem registro" neutra, "Dia em andamento" e "Incompleto" tracejadas, "Dia completo" em verde-sinal. O selo de sincronização segue o mesmo desenho (sólido quando sincronizado, tracejado quando pendente ou offline) e é um botão que sincroniza na hora. Registros não enviados levam o selo "no aparelho", tracejado.
+
+### Escala 0–10
+Rádios nativos visualmente ocultos sobre 11 casas de 40–44px; a escolhida vira um bloco verde-sinal com Tinta-Musgo. Abaixo, as âncoras dos extremos ("0 = descansado · 10 = exausto"). Nada vem marcado: escala intocada é "não respondido". Campos opcionais ficam em "Mais detalhes".
+
 ### Nota explicativa (`.insight`)
 Texto de método ou contexto ("Horários e divisão são sugestões de rotina…"). Fica num painel com um leve tom do Verde-Sinal (5%), borda de 1px e raio de 8px. Nunca usa faixa lateral colorida.
 
@@ -256,6 +275,7 @@ Em Configurações, os critérios e limitações do app ficam num acordeão de `
 - **Do** criar profundidade com degraus de tom e bordas de 1px (Borda Musgo).
 - **Do** garantir alvos de toque de 44px, hover só em `(hover: hover) and (pointer: fine)` e respeito a `prefers-reduced-motion`.
 - **Do** repetir cada token de cor no bloco `[data-theme="light"]` ao criar uma nova superfície.
+- **Do** mostrar a base de toda média, tendência ou sugestão (período e quantidade de registros) e distinguir "não medido" de zero.
 
 ### Don't:
 - **Don't** usar laranja ou vermelho de academia, fotos de modelo ou frases motivacionais agressivas. O BODY OS não é um app fitness genérico.

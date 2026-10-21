@@ -1,7 +1,16 @@
-const CACHE = "body-os-shell-v2";
+const CACHE = "body-os-shell-v3";
+// Public files the shell needs offline; served from the cache, then network.
+const STATIC = [
+  "/offline.html",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/favicon.svg",
+  "/manifest.webmanifest",
+];
 const asset = (url) =>
   url.origin === self.location.origin &&
-  /^\/assets\/.*\.(js|css|woff2?)$/.test(url.pathname);
+  // Vite builds emit /assets/; the Vinext build used here emits /_next/static/.
+  /^\/(?:assets|_next\/static)\/.*\.(?:js|css|woff2?)$/.test(url.pathname);
 async function shell(response) {
   if (
     response.ok &&
@@ -19,12 +28,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
-      await cache.addAll([
-        "/offline.html",
-        "/icon-192.png",
-        "/icon-512.png",
-        "/manifest.webmanifest",
-      ]);
+      await cache.addAll(STATIC);
       await fetch("/", { cache: "reload" })
         .then(shell)
         .catch(() => {});
@@ -86,5 +90,11 @@ self.addEventListener("fetch", (event) => {
           await cache.put(request, response.clone());
         return response;
       })(),
+    );
+  else if (STATIC.includes(url.pathname))
+    event.respondWith(
+      caches
+        .match(url.pathname)
+        .then((stored) => stored || fetch(request)),
     );
 });

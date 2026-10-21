@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState, useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 import {
   Activity,
   BarChart3,
+  CloudOff,
   Dumbbell,
   Heart,
   Home,
   Menu,
+  RefreshCw,
   Scale,
   Settings,
   Sparkles,
@@ -14,31 +16,10 @@ import {
   Utensils,
   X,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Data,
-  Draft,
-  Table,
-  latest,
-  today,
-  days,
-  fmt,
-  PHASES,
-} from "@/lib/body";
-import { RecordForm, type SaveOptions } from "./forms";
-import {
-  enqueue,
-  synchronize,
-  project,
-  discardPending,
-  SyncError,
-  type Pending,
-} from "@/lib/offline";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Data, Draft, Table, latest, today, days, fmt, PHASES, weightStatus } from "@/lib/body";
+import { RecordForm, formTitle, type SaveOptions } from "./forms";
+import { enqueue, synchronize, project, discardPending, SyncError, type Pending } from "@/lib/offline";
 import {
   Overview,
   Nutrition,
@@ -50,6 +31,7 @@ import {
   Assistant,
   SettingsView,
   type ViewProps,
+  type ImportRow,
 } from "./views";
 const navigation = [
   ["Visão geral", Home],
@@ -105,8 +87,28 @@ const TABLE_LABELS: Partial<Record<Table, string>> = {
   competition_events: "Evento",
   competition_categories: "Categoria",
   nutrition_targets: "Metas",
+  nutrition_days: "Dia fechado",
   foods: "Alimento",
   settings: "Configurações",
+  users: "Perfil",
+  goals: "Objetivo",
+  water_logs: "Água",
+};
+const SAVED: Partial<Record<Table, string>> = {
+  weight_logs: "Pesagem salva.",
+  meals: "Refeição salva.",
+  daily_checkins: "Check-in salvo.",
+  jiujitsu_sessions: "Treino salvo.",
+  gym_sessions: "Treino salvo.",
+  gym_exercises: "Exercício salvo.",
+  cardio_sessions: "Cardio salvo.",
+  body_measurements: "Medidas salvas.",
+  body_metrics: "BF salvo.",
+  users: "Perfil salvo.",
+  settings: "Configurações salvas.",
+  nutrition_targets: "Metas salvas.",
+  goals: "Objetivo salvo.",
+  competition_events: "Evento salvo.",
 };
 function longDate(date: string) {
   const label = new Intl.DateTimeFormat("pt-BR", {
@@ -117,6 +119,11 @@ function longDate(date: string) {
   }).format(new Date(date + "T12:00:00Z"));
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
+const clock = (iso: string) =>
+  new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+// Errors reach the screen as their message, never as "Error: …".
+const text = (e: unknown) => (e instanceof Error ? e.message : String(e));
+type Sync = { online: boolean; updated: string | null; syncing: boolean };
 export default function BodyOS() {
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState<Failure | null>(null),
@@ -128,40 +135,46 @@ export default function BodyOS() {
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [pending, setPending] = useState<Pending[]>([]),
-    [online, setOnline] = useState(true),
+    [sync, setSync] = useState<Sync>({ online: true, updated: null, syncing: false }),
     [question, setQuestion] = useState<{
       text: string;
       action: string;
       detail: string;
       answer: (ok: boolean) => void;
     } | null>(null);
+  const running = useRef<Promise<{ online: boolean; pending: Pending[] } | null> | null>(null);
   // In-app replacement for window.confirm: themed, and a bottom sheet on phones.
-  function ask(
-    text: string,
-    action = "Excluir",
-    detail = "Essa ação não pode ser desfeita.",
-  ) {
-    return new Promise<boolean>((answer) =>
-      setQuestion({ text, action, detail, answer }),
-    );
+  function ask(text: string, action = "Excluir", detail = "Essa ação não pode ser desfeita.") {
+    return new Promise<boolean>((answer) => setQuestion({ text, action, detail, answer }));
   }
   function reply(ok: boolean) {
     question?.answer(ok);
     setQuestion(null);
   }
+  // One sync at a time per tab; callers share the run already in flight.
   function refresh() {
-    return synchronize().then(
-      (result) => {
-        setData(project(result.cache.data, result.cache.pending));
+    running.current ??= (async () => {
+      setSync((s) => ({ ...s, syncing: true }));
+      try {
+        const result = await synchronize();
+        // An unchanged account keeps the same object, so nothing re-renders.
+        setData((prev) =>
+          result.changed || !prev ? project(result.cache.data, result.cache.pending) : prev,
+        );
         setPending(result.cache.pending);
-        setOnline(result.online);
+        setSync({ online: result.online, updated: result.cache.updated, syncing: false });
         setError(null);
-      },
-      (e) => {
+        return { online: result.online, pending: result.cache.pending };
+      } catch (e) {
+        setSync((s) => ({ ...s, syncing: false }));
         setData(null);
         setError(e instanceof SyncError ? e.kind : "network");
-      },
-    );
+        return null;
+      } finally {
+        running.current = null;
+      }
+    })();
+    return running.current;
   }
   async function retry() {
     setRetrying(true);
@@ -170,47 +183,50 @@ export default function BodyOS() {
   }
   useEffect(() => {
     refresh();
+    const urls = () => performance.getEntriesByType("resource").map((r) => r.name);
     const warmCache = () =>
-      navigator.serviceWorker.controller?.postMessage({
-        type: "CACHE_ASSETS",
-        urls: performance.getEntriesByType("resource").map((r) => r.name),
-      });
-    if ("serviceWorker" in navigator)
+      navigator.serviceWorker.controller?.postMessage({ type: "CACHE_ASSETS", urls: urls() });
+    if ("serviceWorker" in navigator) {
       navigator.serviceWorker.addEventListener("controllerchange", warmCache);
-    if ("serviceWorker" in navigator)
       navigator.serviceWorker
         .register("/sw.js")
         .then(() => navigator.serviceWorker.ready)
-        .then((reg) => {
-          reg.active?.postMessage({
-            type: "CACHE_ASSETS",
-            urls: performance.getEntriesByType("resource").map((r) => r.name),
-          });
-        })
+        .then((reg) => reg.active?.postMessage({ type: "CACHE_ASSETS", urls: urls() }))
         .catch(() => {});
-    const retry = () => {
+    }
+    const again = () => {
       if (document.visibilityState === "visible") void refresh();
     };
-    window.addEventListener("online", retry);
-    window.addEventListener("focus", retry);
-    const timer = setInterval(retry, 60000);
+    const offline = () => setSync((s) => ({ ...s, online: false }));
+    window.addEventListener("online", again);
+    window.addEventListener("offline", offline);
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    const timer = setInterval(again, 60000);
     return () => {
       if ("serviceWorker" in navigator)
-        navigator.serviceWorker.removeEventListener(
-          "controllerchange",
-          warmCache,
-        );
-      window.removeEventListener("online", retry);
-      window.removeEventListener("focus", retry);
+        navigator.serviceWorker.removeEventListener("controllerchange", warmCache);
+      window.removeEventListener("online", again);
+      window.removeEventListener("offline", offline);
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", again);
       clearInterval(timer);
     };
   }, []);
+  const settings = latest(data?.settings ?? []);
   useEffect(() => {
-    document.documentElement.dataset.theme =
-      latest(data?.settings ?? [])?.theme ?? "dark";
-    document.title =
-      (latest(data?.settings ?? [])?.name ?? "BODY OS") + " · " + page;
-  }, [data, page]);
+    const theme = settings?.theme;
+    if (theme) {
+      document.documentElement.dataset.theme = theme;
+      try {
+        localStorage.setItem("bodyos-theme", theme);
+      } catch {}
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", theme === "light" ? "#f3f5f2" : "#101412");
+    }
+    document.title = (settings?.name ?? "BODY OS") + " · " + page;
+  }, [settings?.theme, settings?.name, page]);
   useEffect(() => {
     if (notice) {
       const timer = setTimeout(() => setNotice(""), 6500);
@@ -229,11 +245,7 @@ export default function BodyOS() {
     setInitial(row);
     setModal(n);
   }
-  async function save(
-    table: Table,
-    payload: Record<string, unknown>,
-    options: SaveOptions = {},
-  ) {
+  async function save(table: Table, payload: Record<string, unknown>, options: SaveOptions = {}) {
     if (busy) return false;
     setBusy(true);
     try {
@@ -241,24 +253,57 @@ export default function BodyOS() {
       setData(project(cache.data, cache.pending));
       setPending(cache.pending);
       if (!options.keepOpen) setModal("");
-      setNotice(
-        options.notice ??
-          "Registro salvo no dispositivo. Sincronização pendente.",
-      );
-      void refresh();
+      const extra =
+        table === "weight_logs" && !options.notice
+          ? (() => {
+              const w = weightStatus(project(cache.data, cache.pending).weight_logs);
+              return w.mean != null ? ` Média de 7 dias: ${fmt(w.mean)} kg.` : ` ${w.week} de 3 pesagens para a média da semana.`;
+            })()
+          : "";
+      setNotice((options.notice ?? "Salvo neste aparelho.") + extra + " Enviando…");
+      // Tells the athlete where the record is once the sync settles.
+      void refresh().then((result) => {
+        if (!result) return;
+        const label = options.notice ?? SAVED[table] ?? "Registro salvo.";
+        setNotice(
+          result.pending.some((p) => p.error)
+            ? "Um registro precisa de revisão antes de sincronizar. Veja o aviso no topo."
+            : result.pending.length
+              ? `${label}${extra} Guardado neste aparelho; envia quando a conexão voltar.`
+              : `${label}${extra} Sincronizado.`,
+        );
+      });
       return true;
     } catch (e) {
-      setNotice(String(e));
+      setNotice(text(e));
       return false;
     } finally {
       setBusy(false);
     }
   }
+  // Restoring a backup goes through the same offline queue and server
+  // validation as any record, then syncs once at the end.
+  async function importRows(rows: ImportRow[]) {
+    let done = 0;
+    try {
+      for (const row of rows) {
+        await enqueue(row.table, row.data);
+        done++;
+      }
+    } catch (e) {
+      setNotice(`${done} de ${rows.length} registros restaurados. Parou em: ${text(e)}`);
+    }
+    const result = await refresh();
+    if (done === rows.length)
+      setNotice(
+        result?.pending.length
+          ? `${done} registros restaurados neste aparelho; sincronizam quando houver conexão.`
+          : `${done} registros restaurados e sincronizados.`,
+      );
+  }
   async function remove(table: Table, id: string) {
     if (pending.length) {
-      setNotice(
-        "Sincronize ou resolva os registros pendentes antes de excluir.",
-      );
+      setNotice("Sincronize ou resolva os registros pendentes antes de excluir.");
       return;
     }
     if (!(await ask("Excluir este registro?"))) return;
@@ -273,18 +318,14 @@ export default function BodyOS() {
       await refresh();
       setNotice("Registro excluído.");
     } catch (e) {
-      setNotice(String(e));
+      setNotice(navigator.onLine === false ? "Excluir precisa de conexão. Nada foi apagado." : text(e));
     }
   }
-  const name = latest(data?.settings ?? [])?.name ?? "BODY OS",
-    phase = latest(data?.settings ?? [])?.phase ?? PHASES[0],
-    weighed = data?.weight_logs.find((w) => w.date === today()),
-    event = data?.competition_events.find(
-      (e) => !e.archived && e.eventDate >= today(),
-    ),
-    goal =
-      data?.goals.find((g) => g.active && g.type === "principal") ??
-      data?.goals.find((g) => g.active),
+  const name = settings?.name ?? "BODY OS",
+    phase = settings?.phase ?? PHASES[0],
+    event = data?.competition_events.find((e) => !e.archived && e.eventDate >= today()),
+    goal = data?.goals.find((g) => g.active && g.type === "principal") ?? data?.goals.find((g) => g.active),
+    conflicts = pending.filter((p) => p.error),
     views: Record<string, ComponentType<ViewProps>> = {
       "Visão geral": Overview,
       Alimentação: Nutrition,
@@ -297,18 +338,24 @@ export default function BodyOS() {
       Configurações: SettingsView,
     },
     View = views[page] ?? Overview;
+  const syncLabel = !sync.online
+    ? pending.length
+      ? `Offline · ${pending.length} no aparelho`
+      : "Offline"
+    : sync.syncing
+      ? "Sincronizando…"
+      : pending.length
+        ? `${pending.length} ${pending.length === 1 ? "registro pendente" : "registros pendentes"}`
+        : sync.updated
+          ? `Sincronizado ${clock(sync.updated)}`
+          : "";
+  const syncState = !sync.online ? "offline" : pending.length ? "pending" : "ok";
   return (
     <div className="app">
-      {menu && (
-        <button
-          className="nav-scrim"
-          onClick={() => setMenu(false)}
-          aria-label="Fechar menu"
-        />
-      )}
+      {menu && <button className="nav-scrim" onClick={() => setMenu(false)} aria-label="Fechar menu" />}
       <aside className={"sidebar " + (menu ? "open" : "")}>
         <button className="brand" onClick={() => go(HOME)}>
-          <span className="brand-icon">
+          <span className="brand-icon" aria-hidden>
             <Activity size={25} />
           </span>
           {name}
@@ -321,7 +368,7 @@ export default function BodyOS() {
               className={page === n ? "active" : ""}
               aria-current={page === n ? "page" : undefined}
             >
-              <Icon size={19} />
+              <Icon size={19} aria-hidden />
               {n}
             </button>
           ))}
@@ -336,7 +383,7 @@ export default function BodyOS() {
       <div className="workspace-main">
         <header className="topbar mobile-only">
           <span className="topbar-brand">
-            <Activity size={20} /> {name}
+            <Activity size={20} aria-hidden /> {name}
           </span>
           {data && <span className="pill">{phase}</span>}
         </header>
@@ -344,74 +391,74 @@ export default function BodyOS() {
           <div className="page-heading">
             <div>
               <h1>{page === HOME ? longDate(today()) : page}</h1>
-              {page === HOME && data && (weighed || event) && (
+              {page === HOME && data && (event || goal) && (
                 <p className="today-status">
-                  {weighed && (
-                    <span>
-                      Pesagem de hoje: <strong>{fmt(weighed.weight)} kg</strong>
-                    </span>
-                  )}
                   {event && (
                     <span>
-                      <strong>{days(event.eventDate, today())} dias</strong> até{" "}
-                      {event.name}
+                      <strong>{days(event.eventDate, today())} dias</strong> até {event.name}
                     </span>
                   )}
+                  {goal && <span>{goal.title}</span>}
                 </p>
               )}
-              {page === HOME && goal && <p>Objetivo: {goal.title}</p>}
             </div>
-          </div>
-          {data && (!online || pending.length > 0) && (
-            <div className="card" role="status" style={{ marginBottom: 20 }}>
-              <strong>{online ? "Sincronização" : "Você está offline"}</strong>
-              <p>
-                {pending.length} registro(s) pendente(s). Os dados deste
-                dispositivo podem estar mais recentes que os do servidor. Fotos,
-                exclusões e chat precisam de conexão.
-              </p>
-              <button className="button" onClick={refresh}>
-                Sincronizar agora
+            {data && syncLabel && (
+              <button
+                type="button"
+                className={`sync-status ${syncState}`}
+                onClick={() => void refresh()}
+                disabled={sync.syncing}
+                aria-label={`${syncLabel}. Sincronizar agora`}
+                title="Sincronizar agora"
+              >
+                {syncState === "offline" ? (
+                  <CloudOff size={15} aria-hidden />
+                ) : (
+                  <RefreshCw size={15} aria-hidden className={sync.syncing ? "spin" : ""} />
+                )}
+                {syncLabel}
               </button>
-              {pending
-                .filter((p) => p.error)
-                .map((p) => (
-                  <div key={p.mutationId}>
-                    <p>
-                      {TABLE_LABELS[p.table as Table] ?? "Registro"} de{" "}
-                      {p.data.date}: {p.error}
-                    </p>
-                    <details>
-                      <summary>Ver dados técnicos</summary>
-                      <pre
-                        style={{
-                          whiteSpace: "pre-wrap",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {JSON.stringify(p.data, null, 2)}
-                      </pre>
-                    </details>
-                    <button
-                      className="button"
-                      onClick={async () => {
-                        if (
-                          await ask(
-                            "Descartar a alteração local?",
-                            "Descartar",
-                            "O registro do servidor passa a valer neste aparelho.",
-                          )
-                        ) {
-                          await discardPending(p.mutationId);
-                          await refresh();
-                        }
-                      }}
-                    >
-                      Descartar alteração local
-                    </button>
-                  </div>
-                ))}
-            </div>
+            )}
+          </div>
+          {data && conflicts.length > 0 && (
+            <section className="card conflict" role="alert">
+              <h2>{conflicts.length === 1 ? "Um registro precisa de revisão" : `${conflicts.length} registros precisam de revisão`}</h2>
+              <p>
+                Eles estão salvos neste aparelho, mas o servidor não aceitou. Os outros registros continuam sincronizando
+                normalmente.
+              </p>
+              {conflicts.map((p) => (
+                <div key={p.mutationId} className="conflict-row">
+                  <p>
+                    <strong>
+                      {TABLE_LABELS[p.table] ?? "Registro"} de {p.data.date.split("-").reverse().join("/")}
+                    </strong>
+                    : {p.error}
+                  </p>
+                  <details>
+                    <summary>Ver o que está no aparelho</summary>
+                    <pre>{JSON.stringify(p.data, null, 2)}</pre>
+                  </details>
+                  <button
+                    className="button"
+                    onClick={async () => {
+                      if (
+                        await ask(
+                          "Descartar a alteração deste aparelho?",
+                          "Descartar",
+                          "A versão do servidor passa a valer. Copie os dados acima antes, se quiser registrá-los de novo.",
+                        )
+                      ) {
+                        await discardPending(p.mutationId);
+                        await refresh();
+                      }
+                    }}
+                  >
+                    Usar a versão do servidor
+                  </button>
+                </div>
+              ))}
+            </section>
           )}
           {error ? (
             <div className="card load-failure" role="alert">
@@ -419,26 +466,23 @@ export default function BodyOS() {
               <p>{FAILURES[error].body}</p>
               <div className="actions">
                 {error === "auth" && (
-                  <a
-                    className="button primary"
-                    href="/signin-with-chatgpt?return_to=/"
-                    target="_top"
-                  >
+                  <a className="button primary" href="/signin-with-chatgpt?return_to=/" target="_top">
                     Entrar
                   </a>
                 )}
-                <button
-                  className="button"
-                  onClick={retry}
-                  disabled={retrying}
-                >
+                <button className="button" onClick={retry} disabled={retrying}>
                   {retrying ? "Tentando…" : "Tentar novamente"}
                 </button>
               </div>
             </div>
           ) : !data ? (
-            <div className="card" role="status">
-              Carregando seus registros…
+            <div className="loading" role="status" aria-label="Carregando seus registros">
+              <div className="skeleton tall" />
+              <div className="skeleton-row">
+                <div className="skeleton" />
+                <div className="skeleton" />
+              </div>
+              <div className="skeleton" />
             </div>
           ) : (
             <View
@@ -451,16 +495,15 @@ export default function BodyOS() {
               go={go}
               remove={remove}
               ask={ask}
+              importRows={importRows}
+              pending={pending.length}
             />
           )}
         </main>
       </div>
       <nav className="dock" aria-label="Atalhos">
-        <button
-          onClick={() => go(HOME)}
-          aria-current={page === HOME ? "page" : undefined}
-        >
-          <Home size={21} />
+        <button onClick={() => go(HOME)} aria-current={page === HOME ? "page" : undefined}>
+          <Home size={21} aria-hidden />
           Hoje
         </button>
         {(
@@ -471,12 +514,12 @@ export default function BodyOS() {
           ] as const
         ).map(([label, Icon]) => (
           <button key={label} onClick={() => open(label)} disabled={!data}>
-            <Icon size={21} />
+            <Icon size={21} aria-hidden />
             {label}
           </button>
         ))}
         <button onClick={() => setMenu(true)} aria-expanded={menu}>
-          <Menu size={21} />
+          <Menu size={21} aria-hidden />
           Menu
         </button>
       </nav>
@@ -486,12 +529,21 @@ export default function BodyOS() {
           if (!v && !busy) setModal("");
         }}
       >
-        <DialogContent className="body-dialog">
-          <DialogTitle>
-            {initial?.id ? "Editar" : "Registrar"} {modal.toLowerCase()}
-          </DialogTitle>
+        <DialogContent
+          className="body-dialog"
+          // Radix would focus the first field (the date), which on a phone can
+          // open a picker. Forms that want a field focused use autoFocus, which
+          // runs first; otherwise the panel itself takes focus.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
+        >
+          <DialogTitle>{formTitle(modal, !!initial?.id)}</DialogTitle>
           <DialogDescription>
-            Fica salvo neste aparelho e sincroniza quando houver conexão.
+            {sync.online
+              ? "Fica salvo neste aparelho e sincroniza em seguida."
+              : "Você está offline: fica salvo neste aparelho e sincroniza quando a conexão voltar."}
           </DialogDescription>
           {data && modal && (
             <RecordForm
@@ -515,7 +567,7 @@ export default function BodyOS() {
           <DialogTitle>{question?.text}</DialogTitle>
           <DialogDescription>{question?.detail}</DialogDescription>
           <div className="confirm-actions">
-            <button className="button" onClick={() => reply(false)}>
+            <button className="button" onClick={() => reply(false)} autoFocus>
               Cancelar
             </button>
             <button className="button danger" onClick={() => reply(true)}>
@@ -527,11 +579,7 @@ export default function BodyOS() {
       {notice && (
         <div role="status" className="toast">
           <span>{notice}</span>
-          <button
-            className="icon-button"
-            onClick={() => setNotice("")}
-            aria-label="Fechar aviso"
-          >
+          <button className="icon-button" onClick={() => setNotice("")} aria-label="Fechar aviso">
             <X size={17} />
           </button>
         </div>

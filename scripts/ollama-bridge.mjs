@@ -83,19 +83,52 @@ export function createBridge({
         reply(400, { error: "Invalid messages" });
         return;
       }
+      const stream = input.stream === true;
       const result = await request(`${upstream}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model,
           messages: input.messages,
-          stream: false,
+          stream,
           options: { num_ctx: 8192, num_predict: 700, temperature: 0.3 },
         }),
         signal: AbortSignal.timeout(115000),
       });
       if (!result.ok) {
         reply(502, { error: "Ollama unavailable" });
+        return;
+      }
+      if (stream && result.body) {
+        // Relays only the reply text and the end marker, line by line, so the
+        // app can show the answer as it is generated.
+        res.writeHead(200, {
+          "Content-Type": "application/x-ndjson",
+          "Cache-Control": "no-store",
+        });
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const relay = (line) => {
+          if (!line.trim()) return;
+          const piece = JSON.parse(line);
+          res.write(
+            JSON.stringify({
+              message: {
+                role: "assistant",
+                content: piece.message?.content ?? "",
+              },
+              done: piece.done === true,
+            }) + "\n",
+          );
+        };
+        for await (const chunk of result.body) {
+          buffer += decoder.decode(chunk, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          lines.forEach(relay);
+        }
+        relay(buffer);
+        res.end();
         return;
       }
       const data = await result.json();

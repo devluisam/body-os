@@ -81,6 +81,8 @@ test("offline shell excludes API and login responses and serves cached assets", 
       type: "CACHE_ASSETS",
       urls: [
         "https://app.test/assets/app.js",
+        "https://app.test/_next/static/chunks/body-os-abc.js",
+        "https://app.test/_next/static/css/index-abc.css",
         "https://app.test/api/photos?id=private",
         "https://external.test/assets/app.js",
       ],
@@ -89,6 +91,9 @@ test("offline shell excludes API and login responses and serves cached assets", 
   });
   await pending;
   assert.ok(entries.has("https://app.test/assets/app.js"));
+  // The Vinext build serves its chunks here; missing them broke offline start.
+  assert.ok(entries.has("https://app.test/_next/static/chunks/body-os-abc.js"));
+  assert.ok(entries.has("https://app.test/_next/static/css/index-abc.css"));
   assert.ok(!entries.has("https://app.test/api/photos?id=private"));
   assert.ok(!entries.has("https://external.test/assets/app.js"));
 });

@@ -285,3 +285,18 @@ export const settings = sqliteTable(
     index("idx_settings_user_date").on(t.userId, t.date),
   ],
 );
+// Days the athlete closed as complete. lib/server.ts creates it on demand
+// (CREATE TABLE IF NOT EXISTS), so older databases need no manual step.
+export const nutrition_days = sqliteTable(
+  "nutrition_days",
+  {
+    id: text("id").notNull(),
+    userId: text("user_id").notNull(),
+    date: text("date").notNull(),
+    payload: text("payload").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.id, t.userId] }),
+    index("idx_nutrition_days_user_date").on(t.userId, t.date),
+  ],
+);

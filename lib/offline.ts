@@ -5,6 +5,8 @@ import {
   macros,
   navyBF,
   profile,
+  canonicalId as dailyId,
+  TABLES,
 } from "./body.ts";
 import type { Data, MealItemInput, Row, Table } from "./body.ts";
 
@@ -15,7 +17,16 @@ export type Pending = {
   baseVersion: string | null;
   error?: string;
 };
-type Cache = { owner: string; data: Data; pending: Pending[]; updated: string };
+// updated: last time the server copy was read successfully.
+// etag: fingerprint of the server copy, sent back so an unchanged account
+// answers 304 instead of resending the whole history.
+type Cache = {
+  owner: string;
+  data: Data;
+  pending: Pending[];
+  updated: string;
+  etag?: string;
+};
 const DATABASE = "body-os-offline-v1";
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -64,14 +75,12 @@ async function locked<T>(fn: () => Promise<T>): Promise<T> {
   return await navigator.locks.request("body-os-sync", fn);
 }
 export function canonicalId(table: Table, data: Row) {
-  return table === "settings"
-    ? "profile-settings"
-    : ["weight_logs", "daily_checkins", "nutrition_targets"].includes(table)
-      ? `${table}-${data.date}`
-      : data.id || crypto.randomUUID();
+  return dailyId(table, data);
 }
 export function project(source: Data, queue: Pending[]): Data {
   const data = structuredClone(source);
+  // A copy saved by an older version may lack tables added since.
+  for (const t of TABLES) data[t] ??= [];
   const put = (table: Table, row: Row) => {
     data[table] = [row, ...data[table].filter((x) => x.id !== row.id)];
   };
@@ -188,21 +197,27 @@ export class SyncError extends Error {
 export async function synchronize(): Promise<{
   cache: Cache;
   online: boolean;
+  // false when the server confirmed nothing changed and nothing was sent.
+  changed: boolean;
 }> {
   return locked(async () => {
     if (navigator.onLine === false) {
       const cache = await cached();
-      if (cache) return { cache, online: false };
+      if (cache) return { cache, online: false, changed: false };
     }
-    let response: Response;
-    try {
-      response = await fetch("/api/data", {
+    const prior = await cached().catch(() => undefined);
+    const read = (etag?: string) =>
+      fetch("/api/data", {
         cache: "no-store",
+        headers: etag ? { "If-None-Match": etag } : {},
         signal: AbortSignal.timeout(12000),
       });
+    let response: Response;
+    try {
+      response = await read(prior?.etag);
     } catch (error) {
       const cache = await cached();
-      if (cache) return { cache, online: false };
+      if (cache) return { cache, online: false, changed: false };
       throw error;
     }
     if (
@@ -216,9 +231,9 @@ export async function synchronize(): Promise<{
         "Entre novamente para acessar e sincronizar seus registros.",
       );
     }
-    if (!response.ok) {
+    if (!response.ok && response.status !== 304) {
       const cache = await cached();
-      if (cache) return { cache, online: false };
+      if (cache) return { cache, online: false, changed: false };
       throw new SyncError("server", "O servidor não respondeu.");
     }
     const identity = response.headers.get("X-BodyOS-Owner");
@@ -229,18 +244,32 @@ export async function synchronize(): Promise<{
       );
     const owner = decodeURIComponent(identity);
     const existing = await storage<Cache>(owner);
+    // 304 only counts for the same account's copy with the same fingerprint;
+    // anything else reads the full response again.
+    let unchanged =
+      response.status === 304 &&
+      !!existing &&
+      existing.etag === response.headers.get("ETag");
+    if (response.status === 304 && !unchanged) {
+      response = await read();
+      if (!response.ok) throw new SyncError("server", "O servidor não respondeu.");
+      unchanged = false;
+    }
     const cache: Cache = {
       owner,
-      data: await response.json(),
+      data: unchanged ? existing!.data : await response.json(),
       pending: existing?.pending ?? [],
       updated: new Date().toISOString(),
+      etag: response.headers.get("ETag") ?? undefined,
     };
     await storage(owner, cache);
     await storage("owner", owner);
     await storage("locked", false);
     let online = true;
+    const sent: string[] = [];
     for (const pending of [...cache.pending]) {
-      if (pending.error) break;
+      // A record waiting for review does not hold back the others.
+      if (pending.error) continue;
       let result: Response;
       try {
         result = await fetch("/api/data", {
@@ -269,27 +298,36 @@ export async function synchronize(): Promise<{
           ((await result.json().catch(() => ({}))) as { error?: string })
             .error ?? "Entre novamente antes de sincronizar.";
         await storage(owner, cache);
-        break;
+        continue;
       }
-      // Fetch the authoritative result before removing the operation; retries reuse its ID.
+      sent.push(pending.mutationId);
+    }
+    // One authoritative read after the batch, before removing the operations.
+    // If it fails they stay queued; a retry reuses each ID and the server
+    // answers "replayed" without writing twice.
+    if (sent.length)
       try {
         const fresh = await fetch("/api/data", {
           cache: "no-store",
           signal: AbortSignal.timeout(12000),
         });
-        if (!fresh.ok || fresh.headers.get("X-BodyOS-Owner") !== identity)
-          break;
-        cache.data = await fresh.json();
-        cache.pending = cache.pending.filter(
-          (p) => p.mutationId !== pending.mutationId,
-        );
-        await storage(owner, cache);
+        if (fresh.ok && fresh.headers.get("X-BodyOS-Owner") === identity) {
+          cache.data = await fresh.json();
+          cache.etag = fresh.headers.get("ETag") ?? undefined;
+          cache.pending = cache.pending.filter(
+            (p) => !sent.includes(p.mutationId),
+          );
+          cache.updated = new Date().toISOString();
+          await storage(owner, cache);
+        }
       } catch {
         online = false;
-        break;
       }
-    }
-    return { cache, online };
+    return {
+      cache,
+      online,
+      changed: !unchanged || sent.length > 0 || cache.pending.length > 0,
+    };
   });
 }
 export async function discardPending(mutationId: string) {

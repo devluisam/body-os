@@ -21,15 +21,16 @@ Sistema pessoal de composição corporal, performance e consistência. Serve par
 ## Operating Context
 
 - Uso diário no celular: pesagem da manhã, refeições ao longo do dia, treinos de Jiu-Jitsu e musculação, check-in de sono, energia, fadiga, dor e estresse.
-- Funciona offline para peso, refeições, treinos, medidas e check-ins, e sincroniza quando a conexão volta. Fotos, chat e exclusões exigem conexão.
+- Funciona offline para peso, refeições, treinos, medidas, check-ins e água, e sincroniza quando a conexão volta. Um selo no topo mostra se está sincronizado, pendente ou offline; registros ainda não enviados aparecem como “no aparelho”. Fotos, chat e exclusões exigem conexão.
+- O dia alimentar só é “completo” quando o atleta o fecha; até lá os totais são parciais e ficam fora das médias.
 - O resumo semanal é gerado ao abrir o app no domingo ou depois. Eventos passados são arquivados na abertura e têm revisão pós-evento.
 - O assistente usa Ollama no PC (llama3.2:3b) ou roda em "modo básico" por regras, identificado na interface quando não há IA configurada.
 
 ## Capabilities and Constraints
 
-- Stack: React 19 + TypeScript, rotas App Router executadas por Vinext/Vite em Cloudflare Workers (não é Next.js em Node). Tailwind CSS 4, shadcn/ui, Lucide, Recharts. D1/SQLite e R2 privado para fotos.
+- Stack: React 19 + TypeScript, rotas App Router executadas por Vinext/Vite em Cloudflare Workers (não é Next.js em Node). Tailwind CSS 4, shadcn/ui, Lucide e um gráfico SVG próprio (`app/chart.tsx`). D1/SQLite e R2 privado para fotos.
 - Interface em português (pt-BR), com modo claro e escuro.
-- O domínio fica em `lib/body.ts`, as decisões em `lib/decisions.ts`, as telas em `app/views.tsx` e os formulários em `app/forms.tsx`.
+- O domínio fica em `lib/body.ts`, as decisões e leituras rotuladas (observação, estimativa, sugestão, dados insuficientes) em `lib/decisions.ts`, o contexto da IA em `lib/coach.ts`, as telas em `app/views.tsx` e os formulários em `app/forms.tsx`.
 - As regras de cálculo estão documentadas no README (Mifflin–St Jeor, US Navy BF, janelas de 7 dias, divisão de refeições). As telas devem manter coerência com elas.
 - Não há integração com Apple Health, Garmin ou WHOOP, nem push, cron em segundo plano, leitura de rótulo ou foto da comida, ou análise visual de BF.
 - Supabase não está conectado. `supabase/schema.sql` é só base para uma futura migração.
