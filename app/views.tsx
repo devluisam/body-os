@@ -57,7 +57,7 @@ import {
   slotAt,
   nowTime,
   profile,
-  trainsToday,
+  plannedOn,
   hour,
   ago,
   dayStatus,
@@ -114,6 +114,24 @@ export function Stat({
       <small>{foot}</small>
     </div>
   );
+}
+// "Musculação às 6h · Basquete": today's sessions from the routine.
+function plannedText(data: Data) {
+  return plannedOn(data)
+    .map((p) => (p.time ? `${p.name} às ${hour(p.time)}` : p.name))
+    .join(" · ");
+}
+// The most recent session of any kind, described in a few words.
+function lastSession(data: Data) {
+  const all = [
+    ...data.gym_sessions.map((x) => ({ x, label: `musculação, ${x.duration} min` })),
+    ...data.jiujitsu_sessions.map((x) => ({ x, label: `Jiu-Jitsu, ${x.duration} min` })),
+    ...data.cardio_sessions.map((x) => ({ x, label: `${String(x.mode).toLowerCase()}, ${x.duration} min` })),
+  ].sort(
+    (a, b) =>
+      b.x.date.localeCompare(a.x.date) || String(b.x.createdAt ?? "").localeCompare(String(a.x.createdAt ?? "")),
+  )[0];
+  return all ? { date: all.x.date, label: all.label } : null;
 }
 function shortDate(date: string) {
   const [y, m, d] = date.split("-");
@@ -266,8 +284,10 @@ function WeightChart({ data, period }: { data: Data; period: number }) {
 // The weight panel answers "how am I trending?" with the basis visible.
 function WeightPanel({ data, open }: Props) {
   const [period, setPeriod] = useState(30),
-    w = weightStatus(data.weight_logs);
+    w = weightStatus(data.weight_logs),
+    goal = latest(data.settings)?.weightGoal;
   const stale = w.age != null && w.age > 3;
+  const gap = w.last && typeof goal === "number" ? (w.mean ?? w.last.weight) - goal : null;
   return (
     <section className="card weight-panel" aria-labelledby="weight-title">
       <div className="card-head">
@@ -291,6 +311,12 @@ function WeightPanel({ data, open }: Props) {
                 {ago(w.last.date)}
                 {stale && " · pese de novo para atualizar"}
               </span>
+              {gap != null && (
+                <span className="age goal-line">
+                  Meta {fmt(goal)} kg · {Math.abs(gap) < 0.5 ? "na meta" : `faltam ${fmt(Math.abs(gap))} kg`}
+                  {w.mean == null && " (pela última pesagem)"}
+                </span>
+              )}
             </>
           ) : (
             <strong className="big-number missing">—</strong>
@@ -433,7 +459,7 @@ function TodayAction({ data, open, go }: Props) {
     checked = data.daily_checkins.some((x) => x.date === today()),
     next = plan.next,
     meals = plan.slots.filter((s) => s.done).length,
-    bjj = trainsToday(data) && me.bjjTime ? hour(me.bjjTime) : null,
+    planned = plannedText(data),
     trained = [data.jiujitsu_sessions, data.gym_sessions, data.cardio_sessions].some((t) =>
       t.some((x) => x.date === today()),
     );
@@ -468,7 +494,7 @@ function TodayAction({ data, open, go }: Props) {
             title: `${next.name} por volta das ${next.time}`,
             body:
               `Cerca de ${fmt(next.target.calories, 0)} kcal e ${fmt(next.target.protein, 0)} g de proteína.` +
-              (bjj ? ` Jiu-Jitsu hoje às ${bjj}.` : ""),
+              (planned ? ` Hoje: ${planned}.` : ""),
             label: "Registrar refeição",
             act: () =>
               open("Refeição", {
@@ -480,8 +506,8 @@ function TodayAction({ data, open, go }: Props) {
         : !trained
           ? {
               Icon: Dumbbell,
-              title: bjj ? `Jiu-Jitsu hoje às ${bjj}` : "Registre o treino, se treinou",
-              body: "Duração, rounds e como você lutou. Comparar performance pede 2 treinos por semana registrados.",
+              title: planned ? `Hoje: ${planned}` : "Registre o treino, se treinou",
+              body: "Duração e esforço de cada sessão. Corrida e basquete entram em Cardio; registrar acompanha carga e recuperação.",
               label: "Registrar treino",
               act: () => open("Treino"),
             }
@@ -578,8 +604,9 @@ export function Overview(p: Props) {
     r = readiness(check, load),
     event = data.competition_events.find((e) => !e.archived && e.eventDate >= today()),
     me = profile(data),
-    bjj = trainsToday(data),
-    lastBjj = latest(data.jiujitsu_sessions),
+    planned = plannedText(data),
+    hasRoutine = me.gymDays.length + me.bjjDays.length + me.sportDays.length > 0,
+    last = lastSession(data),
     c = composition(data);
   return (
     <>
@@ -600,22 +627,15 @@ export function Overview(p: Props) {
               <Dumbbell />
             </span>
             <div>
-              <h3>{bjj ? "Jiu-Jitsu hoje" : "Sem Jiu-Jitsu hoje"}</h3>
+              <h3>{planned ? "Treino de hoje" : "Dia sem treino na rotina"}</h3>
               <p>
-                {bjj
-                  ? me.bjjTime
-                    ? `Às ${hour(me.bjjTime)}`
-                    : "Horário não configurado"
-                  : me.bjjDays.length
-                    ? "Fora dos seus dias de Jiu-Jitsu"
-                    : "Dias de treino não configurados"}
+                {planned ||
+                  (hasRoutine ? "Descanso, ou uma caminhada leve" : "Rotina de treinos não configurada no perfil")}
               </p>
             </div>
           </div>
           <p className="card-foot">
-            {lastBjj
-              ? `Último Jiu-Jitsu ${ago(lastBjj.date)}: ${lastBjj.duration} min, performance ${lastBjj.performance}/10.`
-              : "Nenhum treino de Jiu-Jitsu registrado ainda."}
+            {last ? `Último registro ${ago(last.date)}: ${last.label}.` : "Nenhum treino registrado ainda."}
           </p>
           <button type="button" className="text-button" onClick={() => open("Treino")}>
             Registrar treino <ChevronRight size={15} aria-hidden />
@@ -979,7 +999,7 @@ export function MealPlanner({ data, save, notice }: Props) {
   const [available, setAvailable] = useState(""),
     [hunger, setHunger] = useState(5),
     [training, setTraining] = useState(false),
-    [time, setTime] = useState(profile(data).bjjTime ?? ""),
+    [time, setTime] = useState(plannedOn(data).find((p) => p.time)?.time ?? ""),
     [after, setAfter] = useState(false),
     [items, setItems] = useState<Row[]>([]),
     [kind, setKind] = useState("PF"),
@@ -1475,7 +1495,12 @@ function sessionText(tab: string, x: Row) {
   return parts.filter(Boolean).join(" · ");
 }
 export function Training({ data, open, remove }: Props) {
-  const [tab, setTab] = useState("Jiu-Jitsu"),
+  // Opens on the modality the routine uses; Jiu-Jitsu only if it is in it.
+  const [tab, setTab] = useState(() =>
+      profile(data).bjjDays.length || !data.gym_sessions.length && data.jiujitsu_sessions.length
+        ? "Jiu-Jitsu"
+        : "Musculação",
+    ),
     [all, setAll] = useState(false),
     bjj = range(data.jiujitsu_sessions, shift(today(), -6)),
     sessions = [...data[TRAINING_TABLE[tab]]].sort(
@@ -2395,17 +2420,21 @@ export function SettingsView(p: Props) {
             <dt>Altura</dt>
             <dd>{me.height != null ? `${me.height} cm` : "—"}</dd>
           </div>
-          <div>
-            <dt>Jiu-Jitsu</dt>
-            <dd>
-              {me.bjjDays.length ? me.bjjDays.map((d) => WEEK[d]).join(", ") : "—"}
-              {me.bjjTime ? ` · ${hour(me.bjjTime)}` : ""}
-            </dd>
-          </div>
-          <div>
-            <dt>Musculação</dt>
-            <dd>{me.gymTime ? hour(me.gymTime) : "—"}</dd>
-          </div>
+          {(
+            [
+              ["Musculação", me.gymDays, me.gymTime],
+              ["Jiu-Jitsu", me.bjjDays, me.bjjTime],
+              [me.sportName ?? "Outro esporte", me.sportDays, me.sportTime],
+            ] as const
+          ).map(([name, days, time]) => (
+            <div key={name}>
+              <dt>{name}</dt>
+              <dd>
+                {days.length ? days.map((d) => WEEK[d]).join(", ") : "—"}
+                {days.length && time ? ` · ${hour(time)}` : ""}
+              </dd>
+            </div>
+          ))}
           <div>
             <dt>Lactose</dt>
             <dd>{user?.lactoseIntolerant ? "Intolerante" : "Sem restrição"}</dd>

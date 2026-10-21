@@ -17,6 +17,7 @@ import {
   MEAL_SLOTS,
   type MealItemInput,
   profile,
+  plannedOn,
   parseDecimal,
   ago,
   nowTime,
@@ -132,7 +133,7 @@ const formFields: Record<string, Field[]> = {
     scale("rpe", "Esforço (RPE)", "muito leve", "máximo", { min: 1, optional: true, extra: true }),
   ],
   Cardio: [
-    { key: "mode", label: "Modalidade", type: "select", options: ["Bike", "Esteira", "Corrida", "Caminhada"] },
+    { key: "mode", label: "Modalidade", type: "select", options: ["Corrida", "Caminhada", "Esteira", "Bike", "Basquete", "Outro esporte"] },
     { key: "type", label: "Tipo", type: "select", options: ["Zona 2", "Intervalado", "Livre"] },
     { key: "duration", label: "Duração (min)", type: "int", min: 1, max: 300 },
     scale("rpe", "Esforço (RPE)", "muito leve", "máximo", { min: 1 }),
@@ -180,6 +181,7 @@ const formFields: Record<string, Field[]> = {
     { key: "phase", label: "Fase", type: "select", options: PHASES },
     { key: "steps", label: "Meta de passos", type: "int", min: 1000, max: 30000 },
     { key: "water", label: "Referência de água (ml)", type: "int", min: 500, max: 6000 },
+    { key: "weightGoal", label: "Meta de peso sem kimono (kg)", type: "decimal", min: 30, max: 250, optional: true },
     { key: "bfGoal", label: "Meta de BF (%)", type: "decimal", min: 8, max: 40, optional: true },
     {
       key: "theme",
@@ -204,9 +206,13 @@ const formFields: Record<string, Field[]> = {
     { key: "age", label: "Idade", type: "int", min: 14, max: 90 },
     { key: "height", label: "Altura (cm)", type: "int", min: 120, max: 230 },
     { key: "lactoseIntolerant", label: "Intolerância à lactose", type: "check" },
+    { key: "gymDays", label: "Dias de musculação", type: "days" },
+    { key: "gymTime", label: "Horário da musculação", type: "time", optional: true },
     { key: "bjjDays", label: "Dias de Jiu-Jitsu", type: "days" },
     { key: "bjjTime", label: "Horário do Jiu-Jitsu", type: "time", optional: true },
-    { key: "gymTime", label: "Horário da musculação", type: "time", optional: true },
+    { key: "sportName", label: "Outro esporte (ex.: basquete)", type: "text", optional: true },
+    { key: "sportDays", label: "Dias do outro esporte", type: "days" },
+    { key: "sportTime", label: "Horário do outro esporte", type: "time", optional: true },
   ],
   Objetivo: [
     { key: "title", label: "Objetivo", type: "text" },
@@ -243,7 +249,7 @@ const NOTES: Record<string, string> = {
   Peso: "Pela manhã, depois do banheiro e sem kimono. Um registro por dia: salvar de novo atualiza a pesagem do dia.",
   BF: "Estimativa aproximada. Não compare métodos como se tivessem a mesma precisão.",
   Metas: "O ponto inicial usa Mifflin–St Jeor e atividade estimada. Calibre com registros reais. Nada muda até você salvar.",
-  Configurações: "A fase só muda quando você salvar. A meta de BF pode ficar vazia. Água é referência, sem obrigação de beber além da sede.",
+  Configurações: "A fase só muda quando você salvar. As metas de peso e de BF podem ficar vazias; o app acompanha o ritmo, nunca muda a meta sozinho. Água é referência, sem obrigação de beber além da sede.",
   Campeonato: "Confirme as regras com a organização. O app não recomenda desidratação para entrar numa categoria.",
   Perfil: "Idade, altura e sexo entram no cálculo inicial de calorias; altura também entra no BF por medidas.",
   Exercício: "Compare o mesmo exercício em condições parecidas.",
@@ -438,7 +444,17 @@ export function RecordForm({
   busy: boolean;
   initial?: Draft;
 }) {
-  const [mode, setMode] = useState("Jiu-Jitsu");
+  // Opens on what the routine plans for today; other sports log as cardio.
+  const [mode, setMode] = useState(() => {
+    const first = plannedOn(data)[0]?.name;
+    return first === "Musculação" || first === "Jiu-Jitsu"
+      ? first
+      : first
+        ? "Cardio"
+        : profile(data).bjjDays.length
+          ? "Jiu-Jitsu"
+          : "Musculação";
+  });
   if (kind === "Treino")
     return (
       <>
@@ -539,7 +555,11 @@ function GenericForm({
     const problems = validate(fields, payload);
     if (problems.length) return setProblem(problems.join(" · "));
     setProblem("");
-    if (kind === "Configurações") payload.bfGoal = payload.bfGoal ?? null;
+    // An emptied goal is saved as "no goal", not left at its old value.
+    if (kind === "Configurações") {
+      payload.bfGoal = payload.bfGoal ?? null;
+      payload.weightGoal = payload.weightGoal ?? null;
+    }
     if (kind === "Objetivo" && !initial?.id) payload.id = crypto.randomUUID();
     if (initial?.id) payload.id = initial.id;
     await save(tables[kind], payload);

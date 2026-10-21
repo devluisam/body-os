@@ -97,6 +97,8 @@ Não existem pesagens históricas, fotos, BF ou medidas inventados.
 - Não medido ≠ zero: passos, FC, distância, velocidade, inclinação, minutos até cansar, motivação e notas ficam ausentes quando não informados. Registros antigos com 0 nesses campos aparecem como “—”.
 - Macros: nutrientes do alimento multiplicados pela razão quantidade/porção; calculados novamente no servidor. A refeição salva mantém um snapshot dos nutrientes, mesmo que o alimento seja alterado depois.
 - Ajustes de energia: sugestões conservadoras, nunca alterações automáticas. Não usa calorias de relógio como verdade absoluta.
+- Meta de peso (opcional, em Configurações): o app mostra quanto falta e o prazo num ritmo saudável de 0,5–1% do peso por semana, faixa usada pelo AIS para preservar força e desempenho. Com tendência disponível, compara o ritmo atual e sugere desacelerar se passar de 1% por semana. A meta nunca muda sozinha.
+- Rotina: o perfil guarda dias e horário de musculação, Jiu-Jitsu e de um outro esporte (ex.: basquete). A tela inicial e o assistente usam o que está planejado para o dia; corrida e basquete são registrados em Cardio.
 - Projeção de peso: extrapolação da tendência atual; incerteza aumenta com o prazo. BF/cintura futuros não são inferidos do peso.
 - Risco de recuperação: alerta quando perda rápida, proteína registrada baixa, energia baixa, queda de força estimada e performance pior coexistem. Dados alimentares incompletos podem distorcer o sinal; não é diagnóstico.
 

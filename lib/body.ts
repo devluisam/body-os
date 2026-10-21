@@ -99,19 +99,37 @@ export function latest(rows: Row[]) {
 // The athlete's profile lives in `users`; screens read it here instead of assuming values.
 export function profile(data: Partial<Data>) {
   const u = latest(data.users ?? []);
+  const list = (v: unknown) => (Array.isArray(v) ? (v as number[]) : []);
   return {
     height: typeof u?.height === "number" ? (u.height as number) : null,
     age: typeof u?.age === "number" ? (u.age as number) : null,
     sex: (u?.sex as string | undefined) ?? null,
-    bjjDays: Array.isArray(u?.bjjDays) ? (u.bjjDays as number[]) : [],
+    bjjDays: list(u?.bjjDays),
     bjjTime: (u?.bjjTime as string | undefined) || null,
+    gymDays: list(u?.gymDays),
     gymTime: (u?.gymTime as string | undefined) || null,
+    // One more regular activity (basketball, for example), named by the athlete.
+    sportName: (u?.sportName as string | undefined)?.trim() || null,
+    sportDays: list(u?.sportDays),
+    sportTime: (u?.sportTime as string | undefined) || null,
   };
 }
+const weekday = (date: string) => new Date(date + "T12:00:00Z").getUTCDay();
 export function trainsToday(data: Partial<Data>, date = today()) {
-  return profile(data).bjjDays.includes(
-    new Date(date + "T12:00:00Z").getUTCDay(),
-  );
+  return profile(data).bjjDays.includes(weekday(date));
+}
+export type Planned = { name: string; time: string | null };
+// What the routine in the profile plans for a day, earliest first; sessions
+// without a time come last.
+export function plannedOn(data: Partial<Data>, date = today()): Planned[] {
+  const me = profile(data),
+    d = weekday(date),
+    out: Planned[] = [];
+  if (me.gymDays.includes(d)) out.push({ name: "Musculação", time: me.gymTime });
+  if (me.bjjDays.includes(d)) out.push({ name: "Jiu-Jitsu", time: me.bjjTime });
+  if (me.sportName && me.sportDays.includes(d))
+    out.push({ name: me.sportName, time: me.sportTime });
+  return out.sort((a, b) => (a.time ?? "99").localeCompare(b.time ?? "99"));
 }
 // "15:00" → "15h", "15:30" → "15h30".
 export function hour(time: string | null) {
@@ -430,7 +448,7 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     rpe: maybe(1, 10),
   }),
   cardio_sessions: base.extend({
-    mode: z.enum(["Bike", "Esteira", "Corrida", "Caminhada"]),
+    mode: z.enum(["Corrida", "Caminhada", "Esteira", "Bike", "Basquete", "Outro esporte"]),
     type: z.enum(["Zona 2", "Intervalado", "Livre"]),
     duration: n(1, 300),
     hr: maybe(30, 240),
@@ -463,6 +481,8 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     steps: n(1000, 30000),
     water: n(500, 6000),
     bfGoal: n(8, 40).nullable(),
+    // Target body weight without gi; optional, never set by the app.
+    weightGoal: n(30, 250).nullable().optional(),
     theme: z.enum(["dark", "light"]),
   }),
   users: base.extend({
@@ -472,7 +492,11 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     lactoseIntolerant: z.boolean(),
     bjjDays: z.array(z.number().int().min(0).max(6)).max(7),
     bjjTime: clockTime,
+    gymDays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
     gymTime: clockTime,
+    sportName: z.string().max(40).optional(),
+    sportDays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+    sportTime: clockTime,
   }),
   nutrition_days: base.extend({
     complete: z.boolean(),

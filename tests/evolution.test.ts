@@ -14,9 +14,53 @@ import {
   dayStatus,
   report,
   ago,
+  plannedOn,
 } from "../lib/body.ts";
 import { insights } from "../lib/decisions.ts";
-import { aiContext } from "../lib/coach.ts";
+import { aiContext, routineText } from "../lib/coach.ts";
+test("the routine plans gym, Jiu-Jitsu and another sport by weekday", () => {
+  const data = empty();
+  data.users = [
+    {
+      id: "profile",
+      date: "2026-01-01",
+      bjjDays: [],
+      gymDays: [1, 3, 4, 5],
+      gymTime: "06:00",
+      sportName: "Basquete",
+      sportDays: [2, 4],
+    },
+  ];
+  // 2026-10-22 is a Thursday: gym and basketball, gym first because it has a time.
+  assert.deepEqual(plannedOn(data, "2026-10-22"), [
+    { name: "Musculação", time: "06:00" },
+    { name: "Basquete", time: null },
+  ]);
+  assert.deepEqual(plannedOn(data, "2026-10-25"), []);
+  assert.equal(routineText(data), "Musculação seg/qua/qui/sex às 6h; Basquete ter/qui");
+});
+test("a weight goal gets a healthy-pace window and the current pace", () => {
+  const data = empty();
+  data.settings = [{ id: "profile-settings", date: today(), weightGoal: 75 }];
+  data.weight_logs = [0, 1, 2, 7, 8, 9].map((d, i) => ({
+    id: "w" + i,
+    date: shift(today(), -d),
+    weight: d < 7 ? 87 : 87.6,
+  }));
+  const goal = insights(data).filter((i) => i.area === "Meta");
+  assert.equal(goal[0].kind, "estimativa");
+  // 12 kg at 0.87–0.435 kg/week: 14 to 28 weeks.
+  assert.match(goal[0].text, /Faltam 12,0 kg para 75,0 kg/);
+  assert.match(goal[0].text, /de 14 a 28 semanas/);
+  assert.equal(goal[1].kind, "estimativa");
+  assert.match(goal[1].text, /0,6 kg por semana\), cerca de 20 semanas/);
+  // Losing faster than 1% a week turns into a suggestion to slow down.
+  data.weight_logs = data.weight_logs.map((w) => ({ ...w, weight: w.date >= shift(today(), -6) ? 85 : 87 }));
+  assert.equal(insights(data).filter((i) => i.area === "Meta")[1].kind, "sugestão");
+  // No goal, no goal reading.
+  data.settings = [{ id: "profile-settings", date: today() }];
+  assert.equal(insights(data).filter((i) => i.area === "Meta").length, 0);
+});
 const empty = () => Object.fromEntries(TABLES.map((t) => [t, []])) as unknown as Data;
 const profileRow: Row = {
   id: "profile",

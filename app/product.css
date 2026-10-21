@@ -1358,6 +1358,10 @@ button:disabled:active {
   letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
 }
+.goal-line {
+  display: block;
+  margin-top: 4px;
+}
 .weight-facts dd.fact-note {
   font-size: 12px;
   font-weight: 400;

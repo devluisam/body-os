@@ -8,8 +8,7 @@ import {
   PHASES,
   range,
   shift,
-  profile,
-  trainsToday,
+  plannedOn,
   hour,
   mean,
   days,
@@ -28,11 +27,18 @@ export function nextStep(data: Data) {
     }).format(new Date()),
     [h, m] = time.split(":").map(Number),
     minutes = h * 60 + m,
-    me = profile(data),
-    start = me.bjjTime
-      ? Number(me.bjjTime.slice(0, 2)) * 60 + Number(me.bjjTime.slice(3, 5))
-      : null,
-    train = trainsToday(data) && start != null,
+    // Today's sessions from the routine that have a time: the next one shapes
+    // the meal advice, a finished one the recovery advice.
+    sessions = plannedOn(data)
+      .filter((p) => p.time)
+      .map((p) => ({
+        ...p,
+        start: Number(p.time!.slice(0, 2)) * 60 + Number(p.time!.slice(3, 5)),
+      })),
+    upcoming = sessions.find((s) => minutes < s.start),
+    finished = [...sessions]
+      .reverse()
+      .find((s) => minutes >= s.start + 60 && minutes < s.start + 240),
     meals = data.meals
       .filter((x) => x.date === today())
       .sort((a, b) => b.time.localeCompare(a.time)),
@@ -45,10 +51,10 @@ export function nextStep(data: Data) {
     ? "Comece com um check-in rápido de sono, fome e energia."
     : check.energy < 4 || check.fatigue > 7
       ? "Sua recuperação pede atenção. Priorize descanso e converse com seu treinador antes de aumentar a carga."
-      : train && minutes < start!
-        ? `Jiu-Jitsu hoje às ${hour(me.bjjTime)}. ${minutes < start! - 120 ? `Planeje uma refeição entre ${hour(clock(start! - 180))} e ${hour(clock(start! - 120))}.` : "Se estiver perto do treino, escolha uma porção de fácil digestão conforme sua tolerância."}`
-        : train && minutes >= start! + 120
-          ? "Após o treino, faça sua refeição habitual com proteína e carboidrato conforme a fome."
+      : upcoming
+        ? `${upcoming.name} hoje às ${hour(upcoming.time)}. ${minutes < upcoming.start - 120 ? `Planeje uma refeição entre ${hour(clock(Math.max(0, upcoming.start - 180)))} e ${hour(clock(upcoming.start - 120))}.` : "Se estiver perto do treino, escolha uma porção de fácil digestão conforme sua tolerância."}`
+        : finished
+          ? `Depois de ${finished.name.toLowerCase()}, faça sua refeição habitual com proteína e carboidrato conforme a fome.`
           : typeof check.steps === "number" &&
               check.steps < (settings?.steps ?? 8000)
             ? "Se estiver recuperado, uma caminhada leve pode completar seu movimento do dia."
@@ -97,7 +103,7 @@ export type InsightKind =
   | "sugestão"
   | "dados insuficientes";
 export type Insight = {
-  area: "Peso" | "Alimentação" | "Recuperação" | "Treino" | "Energia" | "Evento";
+  area: "Peso" | "Meta" | "Alimentação" | "Recuperação" | "Treino" | "Energia" | "Evento";
   kind: InsightKind;
   text: string;
   basis: string;
@@ -105,6 +111,73 @@ export type Insight = {
 const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 const shortDay = (date: string) => `${date.slice(8)}/${date.slice(5, 7)}`;
+const monthYear = (date: string) =>
+  new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(date + "T12:00:00Z"),
+  );
+// Healthy pace for a weight change: 0.5–1% of body weight per week, the range
+// sports bodies (AIS) use to protect strength and performance.
+export const PACE = { slow: 0.005, fast: 0.01 } as const;
+function goalInsights(
+  data: Data,
+  w: ReturnType<typeof weightStatus>,
+  asOf: string,
+): Insight[] {
+  const goal = latest(data.settings)?.weightGoal;
+  if (typeof goal !== "number") return [];
+  if (!w.last)
+    return [
+      {
+        area: "Meta",
+        kind: "dados insuficientes",
+        text: `Meta de ${fmt(goal)} kg definida. Registre uma pesagem para medir a distância até ela.`,
+        basis: "Sem pesagens",
+      },
+    ];
+  const base = w.mean ?? w.last.weight,
+    gap = base - goal,
+    basis = w.mean != null ? `Média de 7 dias (${w.week} pesagens)` : `Última pesagem, ${ago(w.last.date, asOf)}`;
+  if (Math.abs(gap) < 0.5)
+    return [{ area: "Meta", kind: "observação", text: `Você está na meta de ${fmt(goal)} kg.`, basis }];
+  const losing = gap > 0,
+    // Rounded up, but a float like 20.0000001 still counts as 20.
+    weeks = (pace: number) => Math.ceil(Math.abs(gap) / (base * pace) - 1e-9),
+    fastWeeks = weeks(PACE.fast),
+    slowWeeks = weeks(PACE.slow);
+  const out: Insight[] = [
+    {
+      area: "Meta",
+      kind: "estimativa",
+      text: `Faltam ${fmt(Math.abs(gap))} kg para ${fmt(goal)} kg. Num ritmo saudável de ${fmt(base * PACE.slow)} a ${fmt(base * PACE.fast)} kg por semana, isso leva de ${fastWeeks} a ${slowWeeks} semanas (entre ${monthYear(shift(asOf, fastWeeks * 7))} e ${monthYear(shift(asOf, slowWeeks * 7))}).`,
+      basis: `${basis} · 0,5–1% do peso por semana`,
+    },
+  ];
+  if (w.trend == null) return out;
+  const toward = losing ? w.trend < 0 : w.trend > 0,
+    rate = Math.abs(w.trend);
+  if (!toward)
+    out.push({
+      area: "Meta",
+      kind: "observação",
+      text: `A tendência atual (${w.trend > 0 ? "+" : ""}${fmt(w.trend)} kg por semana) não aproxima da meta.`,
+      basis: "Média desta semana contra a anterior",
+    });
+  else if (rate > base * PACE.fast)
+    out.push({
+      area: "Meta",
+      kind: "sugestão",
+      text: `O ritmo atual (${fmt(rate)} kg por semana) passa de 1% do peso. Mais devagar costuma preservar força e desempenho; considere subir um pouco as calorias. Nada foi alterado.`,
+      basis: "Média desta semana contra a anterior",
+    });
+  else
+    out.push({
+      area: "Meta",
+      kind: "estimativa",
+      text: `Mantido o ritmo atual (${fmt(rate)} kg por semana), cerca de ${Math.round(Math.abs(gap) / rate)} semanas até a meta.`,
+      basis: "Extrapolação da tendência; a incerteza cresce com o prazo",
+    });
+  return out;
+}
 export function insights(data: Data, asOf = today()): Insight[] {
   const out: Insight[] = [];
   const w = weightStatus(data.weight_logs, asOf);
@@ -143,6 +216,7 @@ export function insights(data: Data, asOf = today()): Insight[] {
         basis: `Esta semana: ${w.week} de 3 · semana anterior: ${w.previous} de 3`,
       });
   }
+  out.push(...goalInsights(data, w, asOf));
   // Food: only days the athlete closed as complete describe what was eaten.
   // Today is still open, so it never counts here.
   const loggedDays = [

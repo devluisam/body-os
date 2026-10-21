@@ -129,10 +129,26 @@ export function lactoseNote(data: Data) {
     : "";
 }
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+// The weekly routine from the profile, e.g. "Musculação seg/qua às 6h".
+export function routineText(data: Data) {
+  const me = profile(data),
+    part = (name: string, days: number[], time: string | null) =>
+      days.length
+        ? `${name} ${days.map((d) => WEEKDAYS[d]).join("/")}${time ? ` às ${hour(time)}` : ""}`
+        : null;
+  return [
+    part("Musculação", me.gymDays, me.gymTime),
+    part("Jiu-Jitsu", me.bjjDays, me.bjjTime),
+    me.sportName ? part(me.sportName, me.sportDays, me.sportTime) : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
 function routine(data: Data) {
-  const me = profile(data);
-  if (!me.bjjDays.length || !me.bjjTime) return "";
-  return `Jiu-Jitsu na rotina: ${me.bjjDays.map((d) => WEEKDAYS[d]).join("/")} às ${hour(me.bjjTime)}. Uma refeição 2 a 3 horas antes pode funcionar; ajuste pela tolerância. `;
+  const text = routineText(data);
+  return text
+    ? `Rotina de treinos: ${text}. Uma refeição 2 a 3 horas antes do treino pode funcionar; ajuste pela tolerância. `
+    : "";
 }
 const dm = (date: string) => `${date.slice(8)}/${date.slice(5, 7)}`;
 const recent = (rows: Row[], n: number) =>
@@ -158,12 +174,11 @@ export function aiContext(data: Data, asOf = today(), clock = "") {
   const lines: string[] = [];
   lines.push(
     `Perfil: ${me.sex === "female" ? "mulher" : me.sex === "male" ? "homem" : "sexo não informado"}, ${me.age ?? "?"} anos, ${me.height ?? "?"} cm${newest(data.users)?.lactoseIntolerant ? ", intolerante à lactose" : ""}.` +
-      (me.bjjDays.length
-        ? ` Jiu-Jitsu ${me.bjjDays.map((d) => WEEKDAYS[d]).join("/")}${me.bjjTime ? ` às ${hour(me.bjjTime)}` : ""}.`
-        : "") +
-      (me.gymTime ? ` Musculação às ${hour(me.gymTime)}.` : ""),
+      ` Rotina: ${routineText(data) || "não informada"}.`,
   );
-  lines.push(`Fase escolhida: ${s?.phase ?? "não definida"}. Objetivos: ${goals.join(" | ") || "nenhum ativo"}.`);
+  lines.push(
+    `Fase escolhida: ${s?.phase ?? "não definida"}. Meta de peso: ${typeof s?.weightGoal === "number" ? `${fmt(s.weightGoal)} kg` : "não definida"}. Objetivos: ${goals.join(" | ") || "nenhum ativo"}.`,
+  );
   lines.push(
     `Metas diárias (editáveis, não prescrição): ${fmt(t.calories, 0)} kcal, ${fmt(t.protein, 0)} g proteína, ${fmt(t.carbs, 0)} g carboidrato, ${fmt(t.fat, 0)} g gordura.`,
   );
