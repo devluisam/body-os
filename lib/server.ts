@@ -2,7 +2,6 @@ import { env } from "cloudflare:workers";
 import {
   Data,
   FOOD_SEED,
-  PHASES,
   Row,
   Table,
   TABLES,
@@ -87,62 +86,20 @@ export async function readData(user: string, initialize = true): Promise<Data> {
   ) as Data;
   if (initialize && !data.users.length) {
     const d = today();
+    // A new account starts with an empty profile, no weight and no goals:
+    // the first screen asks for them instead of assuming anyone's numbers.
     const initial: Partial<Record<Table, Row[]>> = {
-      users: [
-        {
-          id: "profile",
-          date: d,
-          sex: "male",
-          age: 18,
-          height: 177,
-          lactoseIntolerant: true,
-          bjjDays: [1, 3, 5],
-          bjjTime: "15:00",
-          gymTime: "06:00",
-        },
-      ],
-      weight_logs: [
-        {
-          id: "weight_logs-" + d,
-          date: d,
-          weight: 85,
-          source: "Referência inicial aproximada informada",
-        },
-      ],
+      users: [{ id: "profile", date: d }],
       settings: [
         {
           id: "profile-settings",
           date: d,
           name: "BODY OS",
-          phase: PHASES[0],
+          phase: "Manutenção",
           steps: 8000,
           water: 2500,
           bfGoal: null,
           theme: "dark",
-        },
-      ],
-      goals: [
-        {
-          id: "main",
-          date: d,
-          title: "Reduzir gordura corporal preservando massa muscular.",
-          type: "principal",
-          active: true,
-        },
-        {
-          id: "sport",
-          date: d,
-          title: "Melhorar performance no Jiu-Jitsu.",
-          type: "esportivo",
-          active: true,
-        },
-        {
-          id: "november",
-          date: d,
-          title:
-            "Referência intermediária: aproximadamente 80 kg em novembro. Data a confirmar.",
-          type: "temporário",
-          active: true,
         },
       ],
       foods: FOOD_SEED,

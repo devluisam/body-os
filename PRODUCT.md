@@ -42,8 +42,8 @@ Sistema pessoal de composição corporal, performance e consistência. Serve par
 
 ## Evidence on Hand
 
-- Screenshots reais em `docs/screenshots/` (visão geral e assistente).
-- O banco começa vazio. Não existem pesagens históricas, fotos, BF ou medidas inventados. Os 85 kg iniciais, o evento de novembro e a referência de 80 kg são dados informados pelo usuário, não regras confirmadas.
+- Capturas em `docs/screenshots/` feitas com um atleta de demonstração de dados sintéticos.
+- O banco começa vazio: uma conta nova não tem perfil preenchido, pesagem nem objetivos, e a tela inicial pede o perfil primeiro. Não existem pesagens históricas, fotos, BF ou medidas inventados. O repositório é público, então dados pessoais do atleta ficam só no banco, nunca no código ou nas capturas.
 - O catálogo inicial de alimentos é aproximado.
 
 ## Product Principles

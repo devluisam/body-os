@@ -185,20 +185,23 @@ export function foodMacros(f: Row | FoodValues, g: number) {
     fiber: f.fiber * k,
   };
 }
+// Stand-ins used only until the profile and a first weigh-in exist, so the
+// screens can show a starting point. They describe nobody in particular.
+export const FALLBACK = { weight: 75, height: 175, age: 30 } as const;
 export function targets(data: Data) {
   const saved = latest(data.nutrition_targets);
-  const w = latest(data.weight_logs)?.weight ?? 85,
+  const w = latest(data.weight_logs)?.weight ?? FALLBACK.weight,
     phase = latest(data.settings)?.phase ?? PHASES[0];
   const protein = Math.round(
     w * ([PHASES[0], PHASES[3]].includes(phase) ? 2 : 1.8),
   );
-  // Profile fallbacks only apply before the profile row exists.
+  // Without a sex in the profile, the midpoint of the two Mifflin–St Jeor constants.
   const me = profile(data),
     bmr =
       10 * w +
-      6.25 * (me.height ?? 177) -
-      5 * (me.age ?? 18) +
-      (me.sex === "female" ? -161 : 5);
+      6.25 * (me.height ?? FALLBACK.height) -
+      5 * (me.age ?? FALLBACK.age) +
+      (me.sex === "female" ? -161 : me.sex === "male" ? 5 : -78);
   const calories =
     Math.round(
       (bmr * 1.55 +
@@ -220,7 +223,7 @@ export function composition(data: Data) {
     bf = latest(data.body_metrics),
     matched = bf ? data.weight_logs.find((x) => x.date === bf.date) : undefined;
   return {
-    weight: w?.weight ?? 85,
+    weight: w?.weight ?? FALLBACK.weight,
     bf: bf?.bf ?? null,
     method: bf?.method,
     bfDate: bf?.date,

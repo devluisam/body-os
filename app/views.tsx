@@ -65,7 +65,7 @@ import {
   canonicalId,
   type DayState,
 } from "@/lib/body";
-import { delivery } from "@/lib/coach";
+import { delivery, lactoseNote } from "@/lib/coach";
 import { insights, nextStep, phaseSuggestion, type Insight } from "@/lib/decisions";
 import { RecordForm, Save } from "./forms";
 import { TrendChart, type Series } from "./chart";
@@ -437,7 +437,16 @@ function TodayAction({ data, open, go }: Props) {
     trained = [data.jiujitsu_sessions, data.gym_sessions, data.cardio_sessions].some((t) =>
       t.some((x) => x.date === today()),
     );
-  const step = !weighed
+  const incomplete = me.age == null || me.height == null || !me.sex;
+  const step = incomplete
+    ? {
+        Icon: Pencil,
+        title: "Complete seu perfil",
+        body: "Idade, altura e sexo entram no cálculo inicial de calorias e no BF por medidas; os dias de treino organizam o plano. Até lá, as metas usam valores genéricos.",
+        label: "Completar perfil",
+        act: () => open("Perfil", latest(data.users)),
+      }
+    : !weighed
     ? {
         Icon: Scale,
         title: "Registre a pesagem da manhã",
@@ -1046,8 +1055,8 @@ export function MealPlanner({ data, save, notice }: Props) {
           </label>
           <p className="insight">
             {delivery[kind]} Para {meal.toLowerCase()}, mire perto de {fmt(slot.target.calories, 0)} kcal e{" "}
-            {fmt(slot.target.protein, 0)} g de proteína. Pergunte sobre lactose e registre a refeição estimada. Não
-            há pedido automático.
+            {fmt(slot.target.protein, 0)} g de proteína. Registre a refeição estimada; não há pedido automático.
+            {lactoseNote(data)}
           </p>
         </>
       ) : (
@@ -2380,11 +2389,11 @@ export function SettingsView(p: Props) {
         <dl className="profile-facts">
           <div>
             <dt>Idade</dt>
-            <dd>{me.age ?? "—"} anos</dd>
+            <dd>{me.age != null ? `${me.age} anos` : "—"}</dd>
           </div>
           <div>
             <dt>Altura</dt>
-            <dd>{me.height ?? "—"} cm</dd>
+            <dd>{me.height != null ? `${me.height} cm` : "—"}</dd>
           </div>
           <div>
             <dt>Jiu-Jitsu</dt>

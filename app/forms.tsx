@@ -284,7 +284,8 @@ function readField(form: FormData, f: Field): unknown {
     case "days":
       return form.getAll(f.key).map(Number);
     case "select":
-      return f.key === "withGi" ? raw === "Com kimono" : raw;
+      if (f.key === "withGi") return raw === "Com kimono";
+      return raw === "" || raw == null ? undefined : raw;
     default:
       return typeof raw === "string" ? raw.trim() || undefined : undefined;
   }
@@ -378,9 +379,11 @@ function FieldInput({
               ? value === false
                 ? "Sem kimono"
                 : "Com kimono"
-              : String(value ?? optionValue(f.options![0]))
+              : String(value ?? (f.key === "sex" ? "" : optionValue(f.options![0])))
           }
         >
+          {/* Nothing preselected where a default would be a guess about the athlete. */}
+          {f.key === "sex" && value == null && <option value="">Escolha</option>}
           {f.options!.map((o) => (
             <option key={optionValue(o)} value={optionValue(o)}>
               {optionLabel(o)}
@@ -1084,7 +1087,7 @@ export function MealForm({
       )}
       <p className="form-note">
         Peso do alimento pronto. Valores estimados: confira o preparo e o
-        rótulo dos produtos sem lactose.
+        rótulo.
       </p>
       {problem && (
         <p className="form-error" role="alert">

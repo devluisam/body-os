@@ -29,15 +29,15 @@ export const delivery: Record<string, string> = {
   PF: "Peça arroz, feijão, uma porção de frango, peixe ou carne e salada. Molhos à parte. Ajuste as quantidades à fome e à proximidade do treino.",
   Poke: "Escolha arroz, peixe ou frango, vegetais e molho à parte. Confirme ingredientes com leite e o tamanho das porções.",
   Hambúrguer:
-    "Um hambúrguer pode caber no dia. Escolha o tamanho pela fome, confirme pão e molhos sem lactose e registre acompanhamentos separadamente.",
+    "Um hambúrguer pode caber no dia. Escolha o tamanho pela fome, confirme pão e molhos e registre acompanhamentos separadamente.",
   Japonês:
     "Combine arroz, peixe e vegetais. Molhos e preparações empanadas alteram a estimativa; peça detalhes ao restaurante.",
   Churrasco:
     "Monte o prato com carne, arroz ou batata, feijão e salada. Registre azeite e acompanhamentos.",
   Sanduíche:
-    "Combine pão, frango ou ovos e vegetais. Confirme queijo e molhos sem lactose.",
+    "Combine pão, frango ou ovos e vegetais. Confirme queijo e molhos.",
   Pizza:
-    "Escolha uma porção que satisfaça, confirme queijo sem lactose ou peça sem queijo. Registre as fatias e siga sua rotina na próxima refeição.",
+    "Escolha uma porção que satisfaça, confirme o tipo de queijo ou peça sem. Registre as fatias e siga sua rotina na próxima refeição.",
   Regional:
     "Escolha uma fonte de proteína, acompanhamentos e vegetais que você gosta. Registre a porção real; receitas variam.",
   Frango:
@@ -95,7 +95,8 @@ export function coach(message: string, data: Data) {
     return (
       head +
       delivery[kind] +
-      "\n\nEstimativas de delivery variam bastante. Nenhum alimento precisa ser tratado como proibido; confira os ingredientes por sua intolerância à lactose."
+      "\n\nEstimativas de delivery variam bastante. Nenhum alimento precisa ser tratado como proibido." +
+      lactoseNote(data)
     );
   }
   if (/campeonato|compet|pesagem/.test(s)) {
@@ -120,6 +121,12 @@ export function coach(message: string, data: Data) {
     head +
     `Sugestão inicial com os alimentos informados${available === message ? "" : " (confirme o que há em casa)"}:\n${items.map((x) => `${x.name}: ${x.grams} g`).join("\n")}\n\n${fmt(total.calories, 0)} kcal · ${fmt(total.protein, 0)} g proteína · ${fmt(total.carbs, 0)} g carboidratos · ${fmt(total.fat, 0)} g gordura. Estimativa aproximada.\n\n${routine(data)}A sugestão não é registrada automaticamente.`
   );
+}
+// Mentions lactose only for an athlete whose profile says so.
+export function lactoseNote(data: Data) {
+  return newest(data.users)?.lactoseIntolerant
+    ? " Confira ingredientes com leite por causa da intolerância à lactose."
+    : "";
 }
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 function routine(data: Data) {

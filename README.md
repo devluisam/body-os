@@ -71,13 +71,16 @@ A IA recebe um resumo em texto montado por `aiContext()`: perfil, fase, metas, o
 
 ## Primeiros registros
 
-1. Atualize a referência inicial de 85 kg e registre cintura, abdômen e pescoço.
-2. Confira e edite valores dos alimentos pelo preparo ou rótulo; o catálogo inicial é aproximado.
-3. Cadastre evento, data, categoria, pesagem e peso do kimono. Novembro/80 kg são referências, não regras de categoria confirmadas.
-4. Registre refeições, treinos e check-in. A tendência precisa de observações em duas semanas.
-5. Ajuste metas e fase nas configurações. O nome BODY OS também é editável ali.
+Uma conta nova começa com o perfil vazio, sem pesagem e sem objetivos; a tela inicial pede cada passo.
 
-Não existem pesagens históricas, fotos, BF ou medidas inventados. O peso inicial é uma referência fornecida pelo usuário. A data de cadastro é usada como data dessa referência e pode ser corrigida.
+1. Complete o perfil (idade, altura, sexo, intolerâncias, dias e horários de treino). Até lá, as metas usam valores genéricos (75 kg, 175 cm, 30 anos) apenas como ponto de partida.
+2. Registre a primeira pesagem e as medidas de cintura, abdômen e pescoço.
+3. Escolha a fase e cadastre seus objetivos em Configurações. O nome BODY OS também é editável ali.
+4. Confira e edite valores dos alimentos pelo preparo ou rótulo; o catálogo inicial é aproximado.
+5. Cadastre evento, data, categoria, pesagem e peso do kimono quando a organização confirmar.
+6. Registre refeições, treinos e check-in. A tendência precisa de observações em duas semanas.
+
+Não existem pesagens históricas, fotos, BF ou medidas inventados.
 
 ## Regras de cálculo
 

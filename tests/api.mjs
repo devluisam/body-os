@@ -25,7 +25,10 @@ async function request(path = "/api/data", method = "GET", body) {
 const before = await request();
 assert.equal(before.status, 200);
 assert.equal(before.body.foods.length, 59);
-assert.equal(before.body.weight_logs.length, 1);
+// A new account starts with an empty profile, no weigh-in and no goals.
+assert.equal(before.body.weight_logs.length, 0);
+assert.equal(before.body.users[0].age, undefined);
+assert.equal(before.body.goals.length, 0);
 async function save(table, data) {
   const r = await request("/api/data", "POST", {
     table,
@@ -99,6 +102,11 @@ await save("daily_checkins", {
 });
 d = (await request()).body;
 assert.equal(d.sleep_logs.length, 1);
+// Without a height in the profile there is no BF estimate, never a guessed one.
+await save("body_measurements", { date: "2026-01-01", waist: 88, abdomen: 90, neck: 38 });
+d = (await request()).body;
+assert.equal(d.body_metrics.length, 0);
+await save("users", { date: d.users[0].date, sex: "male", age: 30, height: 175, lactoseIntolerant: false, bjjDays: [2, 4], bjjTime: "19:00", gymTime: "07:00" });
 await save("body_measurements", { waist: 88, abdomen: 90, neck: 38 });
 d = (await request()).body;
 assert.ok(d.body_metrics[0].bf > 15 && d.body_metrics[0].bf < 25);
@@ -188,11 +196,11 @@ assert.equal(d.nutrition_days[0].id, "nutrition_days-" + date);
 assert.equal(d.nutrition_days[0].complete, false);
 // The profile is edited in place and keeps its id; it cannot be deleted.
 const profileDate = d.users[0].date;
-await save("users", { date: profileDate, sex: "male", age: 19, height: 178, lactoseIntolerant: true, bjjDays: [1, 3, 5], bjjTime: "15:00", gymTime: "" });
+await save("users", { date: profileDate, sex: "male", age: 31, height: 175, lactoseIntolerant: false, bjjDays: [2, 4], bjjTime: "19:00", gymTime: "" });
 d = (await request()).body;
 assert.equal(d.users.length, 1);
 assert.equal(d.users[0].id, "profile");
-assert.equal(d.users[0].age, 19);
+assert.equal(d.users[0].age, 31);
 assert.equal(d.users[0].gymTime, undefined);
 assert.equal((await request("/api/data", "DELETE", { table: "users", id: "profile" })).status, 400);
 assert.equal((await request("/api/data", "DELETE", { table: "settings", id: "profile-settings" })).status, 400);

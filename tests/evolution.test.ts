@@ -22,12 +22,12 @@ const profileRow: Row = {
   id: "profile",
   date: shift(today(), -60),
   sex: "male",
-  age: 18,
-  height: 177,
-  lactoseIntolerant: true,
-  bjjDays: [1, 3, 5],
-  bjjTime: "15:00",
-  gymTime: "06:00",
+  age: 30,
+  height: 175,
+  lactoseIntolerant: false,
+  bjjDays: [2, 4],
+  bjjTime: "19:00",
+  gymTime: "07:00",
 };
 test("decimals typed with a pt-BR comma are read, garbage is not", () => {
   assert.equal(parseDecimal("7,5"), 7.5);
@@ -158,8 +158,9 @@ test("the AI context is compact text from the records, without ids", () => {
     _mutationId: "aaaaaaaaaaaaaaaaaaaa",
   }));
   const text = aiContext(data);
-  assert.match(text, /homem, 18 anos, 177 cm, intolerante à lactose/);
-  assert.match(text, /Jiu-Jitsu seg\/qua\/sex às 15h/);
+  assert.match(text, /homem, 30 anos, 175 cm\./);
+  assert.match(text, /Jiu-Jitsu ter\/qui às 19h/);
+  assert.doesNotMatch(text, /lactose/);
   assert.match(text, /média 7 dias 8\d,\d+ kg \(7 pesagens\)/);
   assert.doesNotMatch(text, /weight_logs-|_mutationId|createdAt/);
   assert.match(text, /nenhum cadastrado; não invente/);

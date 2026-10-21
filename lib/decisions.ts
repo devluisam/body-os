@@ -164,7 +164,7 @@ export function insights(data: Data, asOf = today()): Insight[] {
       out.push({
         area: "Alimentação",
         kind: "sugestão",
-        text: `A proteína ficou ~${fmt(t.protein - p, 0)} g abaixo da meta. Uma porção a mais em uma refeição (ovos, frango, whey sem lactose) costuma fechar a diferença.`,
+        text: `A proteína ficou ~${fmt(t.protein - p, 0)} g abaixo da meta. Uma porção a mais em uma refeição (ovos, frango, whey) costuma fechar a diferença.`,
         basis: "Média dos dias completos contra a sua meta",
       });
   } else
