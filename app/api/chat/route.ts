@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
-import { owner, guard, readData, put, db, failure } from "@/lib/server";
-import { today, targets, composition, Table } from "@/lib/body";
+import { owner, guard, readData, put, failure } from "@/lib/server";
+import { today, targets, composition } from "@/lib/body";
 import { coach, SAFETY } from "@/lib/coach";
 import { nextStep } from "@/lib/decisions";
 import { ollamaChat } from "@/lib/ollama";
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   try {
     guard(req);
     const user = owner(req),
-      { message } = (await req.json()) as any;
+      { message } = (await req.json()) as { message?: unknown };
     if (typeof message !== "string" || !message.trim() || message.length > 2000)
       throw Error("Escreva uma mensagem de até 2.000 caracteres");
     const data = await readData(user);
@@ -117,12 +117,14 @@ export async function POST(req: Request) {
         throw Error(
           "A IA está indisponível. Tente novamente; os seus registros estão preservados.",
         );
-      const j = (await r.json()) as any;
+      const j = (await r.json()) as {
+        output?: { content?: { type: string; text: string }[] }[];
+      };
       response = j.output
-        ?.flatMap((x: any) => x.content ?? [])
-        .filter((x: any) => x.type === "output_text")
-        .map((x: any) => x.text)
-        .join("\n");
+        ?.flatMap((x) => x.content ?? [])
+        .filter((x) => x.type === "output_text")
+        .map((x) => x.text)
+        .join("\n") ?? "";
       if (!response) throw Error("A IA não retornou texto. Tente novamente.");
       mode = "ai";
     }

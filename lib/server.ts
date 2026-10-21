@@ -13,7 +13,6 @@ import {
   macros,
   assessment,
   weightMean,
-  weightTrend,
 } from "./body";
 export function db() {
   if (!env.DB) throw Error("Banco indisponível");
@@ -42,17 +41,17 @@ export function put(table: Table, user: string, data: Row) {
     .bind(data.id, user, data.date, JSON.stringify(data));
 }
 export async function readData(user: string, initialize = true): Promise<Data> {
-  let sets = await db().batch(
+  const sets = await db().batch<{ payload: string }>(
     TABLES.map((t) =>
       db()
         .prepare(`SELECT payload FROM ${t} WHERE user_id=? ORDER BY date DESC`)
         .bind(user),
     ),
   );
-  let data = Object.fromEntries(
+  const data = Object.fromEntries(
     TABLES.map((t, i) => [
       t,
-      sets[i].results.map((r: any) => JSON.parse(r.payload)),
+      sets[i].results.map((r) => JSON.parse(r.payload)),
     ]),
   ) as Data;
   if (initialize && !data.users.length) {
@@ -129,6 +128,24 @@ export async function readData(user: string, initialize = true): Promise<Data> {
         );
     await db().batch(commands);
     return readData(user, false);
+  }
+  // Catalog growth reaches existing accounts: only seed ids the account has
+  // never had are inserted, so foods the athlete edited keep their values.
+  if (initialize) {
+    const have = new Set(data.foods.map((f) => f.id));
+    const missing = FOOD_SEED.filter((f) => !have.has(f.id));
+    if (missing.length) {
+      await db().batch(
+        missing.map((f) =>
+          db()
+            .prepare(
+              "INSERT OR IGNORE INTO foods (id,user_id,date,payload) VALUES (?,?,?,?)",
+            )
+            .bind(f.id, user, f.date, JSON.stringify(f)),
+        ),
+      );
+      data.foods.push(...missing);
+    }
   }
   const expired = data.competition_events.filter(
     (e) => !e.archived && e.eventDate < today(),

@@ -60,10 +60,10 @@ export async function GET(req: Request) {
   try {
     const user = owner(req),
       id = new URL(req.url).searchParams.get("id");
-    const r: any = await db()
+    const r = await db()
       .prepare("SELECT payload FROM progress_photos WHERE id=? AND user_id=?")
       .bind(id, user)
-      .first();
+      .first<{ payload: string }>();
     if (!r || !env.BUCKET)
       return new Response("Não encontrada", { status: 404 });
     const obj = await env.BUCKET.get(JSON.parse(r.payload).key);
@@ -83,11 +83,11 @@ export async function DELETE(req: Request) {
   try {
     guard(req);
     const user = owner(req),
-      { id } = (await req.json()) as any;
-    const r: any = await db()
+      { id } = (await req.json()) as { id?: string };
+    const r = await db()
       .prepare("SELECT payload FROM progress_photos WHERE id=? AND user_id=?")
       .bind(id, user)
-      .first();
+      .first<{ payload: string }>();
     if (r) {
       await env.BUCKET?.delete(JSON.parse(r.payload).key);
       await db()

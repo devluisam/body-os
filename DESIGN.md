@@ -54,7 +54,7 @@ typography:
     fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: "1.4px"
+    letterSpacing: "0px"
 rounded:
   xs: "4px"
   sm: "7px"
@@ -133,7 +133,7 @@ O visual rejeita três coisas: o app fitness genérico (laranja ou vermelho de a
 É uma paleta monocromática de musgos quase pretos com um único verde elétrico. As cores de apoio aparecem apenas para codificar dados.
 
 ### Primary
-- **Verde-Sinal** (`verde-sinal`): o único acento. Aparece no botão primário, no item de navegação ativo, na aba selecionada, nas pills, no eyebrow das páginas, no anel de calorias, na linha de média de 7 dias e no anel de foco. Sobre ele, o texto usa **Tinta-Musgo** (`tinta-musgo`).
+- **Verde-Sinal** (`verde-sinal`): o único acento. Aparece no botão primário, no item de navegação ativo, na aba selecionada, nas pills, no ícone do cartão Hoje, no anel de calorias, na linha de média de 7 dias e no anel de foco. No código é sempre `var(--primary)`, nunca o hex fixo, para que o tema claro troque o tom. Sobre ele, o texto usa **Tinta-Musgo** (`tinta-musgo`).
 
 ### Secondary
 - **Céu de Carbo** (`carbo-ceu`): carboidratos nos medidores e BF (%) no gráfico de composição.
@@ -148,10 +148,10 @@ O visual rejeita três coisas: o app fitness genérico (laranja ou vermelho de a
 - **Borda Musgo** (`borda-musgo`): todas as bordas de 1px, divisores e linhas de tabela.
 - **Borda de Campo** (`borda-campo`): contorno de inputs e selects.
 - **Seleção Musgo** e **Seleção de Aba** (`selecao-musgo`, `selecao-aba`): fundo do item ativo na navegação e nas abas.
-- **Faixa de Destaque** (`faixa-destaque`, com `borda-destaque`): início do gradiente dos blocos de objetivo, próximo passo e campeonato.
+- **Faixa de Destaque** (`faixa-destaque`, com `borda-destaque`): início do gradiente do cartão Hoje e dos blocos de campeonato.
 - **Texto Névoa** (`texto-nevoa`): texto principal e números.
 - **Texto Líquen** (`texto-liquen`): legendas, unidades, parágrafos e rótulos secundários.
-- **Salmão de Erro** (`erro-salmao`): mensagens de erro.
+- **Salmão de Erro** (`erro-salmao`, token `--danger`): mensagens de erro e o texto do botão de confirmação destrutiva. No tema claro vira #a3382a.
 
 ### Tema claro
 Os tokens `claro-*` substituem os neutros em `[data-theme="light"]`. O acento passa a ser o **Verde Claro** (`claro-verde`) com texto branco, porque o verde-sinal perde contraste sobre fundo claro. Os destaques viram gradientes de pistache (#e5efdc → #f2f6ed).
@@ -169,22 +169,24 @@ Os tokens `claro-*` substituem os neutros em `[data-theme="light"]`. O acento pa
 **Character:** Uma única família neutra, sem personalidade tipográfica própria. A hierarquia vem do tamanho, do peso e do tracking negativo nos números grandes, como na leitura de um instrumento.
 
 ### Hierarchy
-- **Display** (`display`): o h1 da página ("Sua melhor versão, todos os dias."). Fica com 34px em telas ≥1500px, 25px até 1100px e 28px no celular, com largura máxima de 340px.
+- **Display** (`display`): o h1 da página. Na Visão geral é a data por extenso ("Sábado, 26 de setembro"); nas outras seções, o nome da seção. Não há slogan. Fica com 34px em telas ≥1500px, 25px até 1100px e 28px no celular.
 - **Headline** (`headline`): os valores de estatística (peso, média, readiness). A unidade vem ao lado em 14px na cor Texto Líquen, com espaçamento normal. O número do anel de calorias usa 31px no mesmo estilo.
 - **Title** (`title`): o h2 das seções. Nos cabeçalhos de cartão usa 16px e, no celular, 15px.
 - **Body** (`body`): parágrafos e legendas longas, em Texto Líquen. A interface usa 14px em quase tudo; a base do documento é 16px com altura de linha 1.5.
-- **Label** (`label`): eyebrows, rótulos de navegação e faixas de destaque, em caixa alta e com tracking de 1–1.5px. O eyebrow usa Verde-Sinal e cai para 10px no celular.
+- **Label** (`label`): rótulos curtos acima de um título ("Próximo registro", "Fase atual"), em 12px, caixa normal e sem tracking. Não há eyebrows em caixa alta acima dos títulos; o contexto de um cartão vai numa legenda abaixo do h2 (`small`), como em "Evolução corporal / Peso diário e média móvel de 7 dias".
 
 ### Named Rules
-**The Unit-Beside Rule.** Todo número grande vem com a unidade ao lado, menor e mais suave (kg, %, cm, kcal). Um número sem unidade é um número ambíguo.
+**The Unit-Beside Rule.** Todo número grande vem com a unidade ao lado, menor e mais suave (kg, %, cm, kcal). Um número sem unidade é um número ambíguo. O inverso também vale: o travessão de valor ausente aparece sozinho, em Texto Líquen, sem unidade ("—", nunca "— %" ou "—/100").
 
 ## Layout
 
-O desktop tem uma barra lateral fixa de 240px (210px até 1100px) e a área principal com margem igual à largura dela. A barra superior tem 75px, com breadcrumb e rótulo "Espaço pessoal". O conteúdo fica num `main` de até 1500px, com padding de 36px 38px.
+O desktop tem uma barra lateral fixa de 240px (210px até 1100px), com a marca, a navegação e a fase atual no rodapé, e a área principal com margem igual à largura dela. Não há barra superior nem footer no desktop. O conteúdo fica num `main` de até 1500px, com padding de 40px 38px.
 
-A página segue sempre esta ordem: cabeçalho (eyebrow, h1 e subtítulo, com a ação primária à direita), faixa de objetivo, grade de 4 estatísticas, grade principal 1.65fr/1fr (gráfico e alimentação) e grade inferior de 3 colunas. O espaçamento entre blocos fica em torno de 22px e, dentro da grade de estatísticas, em 16px.
+A Visão geral segue esta ordem: cabeçalho (data, linha de status com a pesagem do dia e a contagem até o evento, e o objetivo), cartão Hoje, grade de 4 estatísticas, grade principal 1.65fr/1fr (gráfico e alimentação, com o gráfico crescendo até a altura da coluna vizinha), grade inferior de 3 colunas e a barra de registro rápido. As outras seções começam pelo h1 e por uma barra de ferramentas com a ação primária. O espaçamento entre blocos fica em torno de 22px e, dentro da grade de estatísticas, em 16px.
 
-Breakpoints: em 1100px as grades apertam e a pill da faixa de objetivo some. Em 760px a barra lateral vira gaveta com scrim, a topbar cai para 61px, as estatísticas passam a 2 colunas, as grades viram 1 coluna e a ação do cabeçalho desce para baixo do título.
+A seção aberta vive no hash da URL (`#Alimentação`), que é a fonte da verdade: links diretos abrem a seção certa, e o voltar do navegador ou o gesto de voltar do iOS troca de seção.
+
+Breakpoints: em 1100px as grades apertam. Entre 761px e 960px (tablet em pé) a barra lateral fica, as estatísticas passam a 2 colunas e a grade principal vira 1 coluna. Em 760px a barra lateral vira gaveta com scrim, aparece uma topbar de 56px com a marca e a fase, e uma barra inferior fixa (Hoje, Peso, Refeição, Check-in, Menu) substitui o registro rápido. As estatísticas ficam em 2 colunas e as grades em 1.
 
 ## Elevation & Depth
 
@@ -227,20 +229,30 @@ Botões firmes e silenciosos, que afundam ao toque.
 - **Mobile:** vira uma gaveta lateral que abre com a curva de gaveta do iOS (320ms), sobre um scrim que esmaece.
 
 ### Tabs (seletor de período)
-- **Style:** trilho com fundo da página, borda e padding de 4px. A aba selecionada ganha fundo Seleção de Aba e texto Verde-Sinal. Trocar de aba não tem animação.
+- **Style:** trilho com fundo da página, borda e padding de 4px. A aba selecionada ganha fundo Seleção de Aba e texto Verde-Sinal e expõe `aria-pressed`. Trocar de aba não tem animação. As abas de período do gráfico (30d/60d/90d) têm no mínimo 44×34px e nunca quebram de linha.
 
 ### Anel de calorias e medidores (signature)
-O anel usa `conic-gradient` com a variável `--progress`: Verde-Sinal sobre um trilho #323c2d, com o miolo em cor de cartão e o número restante no centro. Os medidores de macro são trilhos de 5px. Proteína usa Verde-Sinal, carboidratos Céu de Carbo e gorduras Âmbar de Gordura. Os dois deslizam até o novo valor em 500ms com ease-in-out, sem animar na montagem.
+O anel usa `conic-gradient` com a variável `--progress`: Verde-Sinal sobre um trilho #323c2d, com o miolo em cor de cartão e o número restante no centro. Os medidores de macro são trilhos de 5px, com o preenchimento em `transform: scaleX()` em vez de `width`. Proteína usa Verde-Sinal, carboidratos Céu de Carbo e gorduras Âmbar de Gordura. Os dois deslizam até o novo valor em 500ms com ease-in-out, sem animar na montagem.
 
-### Faixa de objetivo (signature)
-É um bloco horizontal com ícone em quadrado oliva, rótulo em caixa alta, a frase do objetivo e uma pill de fase à direita. Aparece sobre o gradiente de destaque.
+### Cartão Hoje (signature)
+É o primeiro bloco da Visão geral e mostra uma única ação: o próximo registro do dia, na ordem em que o dia acontece (pesagem da manhã, depois check-in, depois a próxima refeição do plano; com tudo feito, sugere registrar o treino). Tem ícone em quadrado oliva, o rótulo "Próximo registro", o título da ação, uma frase de contexto e, abaixo, o estado dos registros do dia em pills (Pesagem · Check-in · Refeições 2/6), com check verde quando feito e círculo vazado quando pendente. À direita ficam o único botão primário da tela e um link "Orientação do dia" para o Assistente. Usa o gradiente de destaque. No celular, o botão ocupa a largura toda, embaixo do texto.
+
+### Nota explicativa (`.insight`)
+Texto de método ou contexto ("Horários e divisão são sugestões de rotina…"). Fica num painel com um leve tom do Verde-Sinal (5%), borda de 1px e raio de 8px. Nunca usa faixa lateral colorida.
+
+### Diálogo de confirmação
+Exclusões e descartes usam um diálogo do próprio app, nunca `window.confirm`. O título é a pergunta ("Excluir esta foto?") e a descrição, a consequência ("O arquivo é apagado… e não pode ser recuperado."). Os botões são Cancelar (secundário, com o foco inicial) e a ação destrutiva, com texto Salmão de Erro sobre a superfície neutra, sem bloco vermelho. No celular vira bottom sheet, como os formulários.
+
+### Perguntas frequentes
+Em Configurações, os critérios e limitações do app ficam num acordeão de `<details>` com linhas de 52px e um chevron que gira 90° ao abrir. As referências aparecem abaixo, uma por linha.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** manter o Verde-Sinal como único acento, e apenas em ação primária, item ativo, foco e série principal.
 - **Do** mostrar cada número grande com a unidade ao lado, em 14px na cor Texto Líquen.
-- **Do** representar dados ausentes com travessão ("—") e uma legenda honesta, sem mostrar zero.
+- **Do** representar dados ausentes com travessão ("—") sem unidade e uma legenda honesta, sem mostrar zero.
+- **Do** manter um único botão primário por tela. Na Visão geral ele fica no cartão Hoje.
 - **Do** criar profundidade com degraus de tom e bordas de 1px (Borda Musgo).
 - **Do** garantir alvos de toque de 44px, hover só em `(hover: hover) and (pointer: fine)` e respeito a `prefers-reduced-motion`.
 - **Do** repetir cada token de cor no bloco `[data-theme="light"]` ao criar uma nova superfície.
@@ -252,3 +264,4 @@ O anel usa `conic-gradient` com a variável `--progress`: Verde-Sinal sobre um t
 - **Don't** usar azul, âmbar ou ouro fora da codificação de dados.
 - **Don't** adicionar sombras a cartões ou botões em repouso.
 - **Don't** animar ações repetidas, como troca de aba, nem animar barras e anéis na montagem.
+- **Don't** usar eyebrows em caixa alta, slogans no cabeçalho ou footer institucional. É um painel pessoal, não um site.

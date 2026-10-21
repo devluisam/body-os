@@ -14,7 +14,7 @@ test("offline shell excludes API and login responses and serves cached assets", 
   };
   let offline = false,
     login = false;
-  const fetch = async (request) => {
+  const fetch = async () => {
     if (offline) throw Error("offline");
     const response = new Response(
       login ? "<html>Sign in</html>" : '<body data-bodyos-shell="1">App</body>',

@@ -1,17 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore, type ComponentType } from "react";
 import {
   Activity,
   BarChart3,
-  ChevronRight,
   Dumbbell,
   Heart,
   Home,
   Menu,
-  Plus,
   Scale,
   Settings,
-  Shield,
   Sparkles,
   Trophy,
   Utensils,
@@ -23,13 +20,23 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Data, Draft, Table, latest } from "@/lib/body";
-import { RecordForm } from "./forms";
+import {
+  Data,
+  Draft,
+  Table,
+  latest,
+  today,
+  days,
+  fmt,
+  PHASES,
+} from "@/lib/body";
+import { RecordForm, type SaveOptions } from "./forms";
 import {
   enqueue,
   synchronize,
   project,
   discardPending,
+  SyncError,
   type Pending,
 } from "@/lib/offline";
 import {
@@ -42,6 +49,7 @@ import {
   Reports,
   Assistant,
   SettingsView,
+  type ViewProps,
 } from "./views";
 const navigation = [
   ["Visão geral", Home],
@@ -54,28 +62,111 @@ const navigation = [
   ["Assistente", Sparkles],
   ["Configurações", Settings],
 ] as const;
+// Each load failure gets its own recovery: only an expired session offers sign-in.
+const FAILURES = {
+  auth: {
+    title: "Sua sessão expirou",
+    body: "Entre novamente para ver e sincronizar seus registros.",
+  },
+  server: {
+    title: "O servidor não respondeu",
+    body: "Nenhum registro foi apagado. Tente de novo em alguns instantes.",
+  },
+  network: {
+    title: "Sem conexão",
+    body: "Verifique a internet. Depois de abrir o app conectado uma vez, peso, refeições, treinos e check-ins funcionam offline neste aparelho.",
+  },
+  account: {
+    title: "Conta não confirmada",
+    body: "Não foi possível confirmar a conta. Atualize o aplicativo e tente de novo.",
+  },
+} as const;
+type Failure = keyof typeof FAILURES;
+// The URL hash is the source of truth for the open section, so the browser
+// back button and iOS back-swipe move between sections.
+const HOME = "Visão geral";
+function hashPage() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  return navigation.some(([n]) => n === h) ? h : HOME;
+}
+function onNavigate(notify: () => void) {
+  window.addEventListener("popstate", notify);
+  return () => window.removeEventListener("popstate", notify);
+}
+const TABLE_LABELS: Partial<Record<Table, string>> = {
+  weight_logs: "Peso",
+  meals: "Refeição",
+  jiujitsu_sessions: "Treino de Jiu-Jitsu",
+  gym_sessions: "Musculação",
+  gym_exercises: "Exercício",
+  cardio_sessions: "Cardio",
+  daily_checkins: "Check-in",
+  body_measurements: "Medidas",
+  competition_events: "Evento",
+  competition_categories: "Categoria",
+  nutrition_targets: "Metas",
+  foods: "Alimento",
+  settings: "Configurações",
+};
+function longDate(date: string) {
+  const label = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(date + "T12:00:00Z"));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 export default function BodyOS() {
   const [data, setData] = useState<Data | null>(null),
-    [error, setError] = useState(""),
-    [page, setPage] = useState("Visão geral"),
+    [error, setError] = useState<Failure | null>(null),
+    [retrying, setRetrying] = useState(false),
+    page = useSyncExternalStore(onNavigate, hashPage, () => HOME),
     [menu, setMenu] = useState(false),
     [modal, setModal] = useState(""),
     [initial, setInitial] = useState<Draft | undefined>(),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [pending, setPending] = useState<Pending[]>([]),
-    [online, setOnline] = useState(true);
-  async function refresh() {
-    try {
-      const result = await synchronize();
-      setData(project(result.cache.data, result.cache.pending));
-      setPending(result.cache.pending);
-      setOnline(result.online);
-      setError("");
-    } catch (e) {
-      setData(null);
-      setError(String(e));
-    }
+    [online, setOnline] = useState(true),
+    [question, setQuestion] = useState<{
+      text: string;
+      action: string;
+      detail: string;
+      answer: (ok: boolean) => void;
+    } | null>(null);
+  // In-app replacement for window.confirm: themed, and a bottom sheet on phones.
+  function ask(
+    text: string,
+    action = "Excluir",
+    detail = "Essa ação não pode ser desfeita.",
+  ) {
+    return new Promise<boolean>((answer) =>
+      setQuestion({ text, action, detail, answer }),
+    );
+  }
+  function reply(ok: boolean) {
+    question?.answer(ok);
+    setQuestion(null);
+  }
+  function refresh() {
+    return synchronize().then(
+      (result) => {
+        setData(project(result.cache.data, result.cache.pending));
+        setPending(result.cache.pending);
+        setOnline(result.online);
+        setError(null);
+      },
+      (e) => {
+        setData(null);
+        setError(e instanceof SyncError ? e.kind : "network");
+      },
+    );
+  }
+  async function retry() {
+    setRetrying(true);
+    await refresh();
+    setRetrying(false);
   }
   useEffect(() => {
     refresh();
@@ -97,8 +188,6 @@ export default function BodyOS() {
           });
         })
         .catch(() => {});
-    const h = decodeURIComponent(location.hash.slice(1));
-    if (navigation.some(([n]) => n === h)) setPage(h);
     const retry = () => {
       if (document.visibilityState === "visible") void refresh();
     };
@@ -129,24 +218,33 @@ export default function BodyOS() {
     }
   }, [notice]);
   function go(n: string) {
-    setPage(n);
     setMenu(false);
-    location.hash = n;
+    if (n !== page) {
+      history.pushState(null, "", "#" + encodeURIComponent(n));
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
     window.scrollTo({ top: 0 });
   }
   function open(n: string, row?: Draft) {
     setInitial(row);
     setModal(n);
   }
-  async function save(table: Table, payload: Record<string, unknown>) {
+  async function save(
+    table: Table,
+    payload: Record<string, unknown>,
+    options: SaveOptions = {},
+  ) {
     if (busy) return false;
     setBusy(true);
     try {
       const cache = await enqueue(table, payload);
       setData(project(cache.data, cache.pending));
       setPending(cache.pending);
-      setModal("");
-      setNotice("Registro salvo no dispositivo. Sincronização pendente.");
+      if (!options.keepOpen) setModal("");
+      setNotice(
+        options.notice ??
+          "Registro salvo no dispositivo. Sincronização pendente.",
+      );
       void refresh();
       return true;
     } catch (e) {
@@ -163,14 +261,14 @@ export default function BodyOS() {
       );
       return;
     }
-    if (!confirm("Excluir este registro?")) return;
+    if (!(await ask("Excluir este registro?"))) return;
     try {
       const r = await fetch("/api/data", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ table, id }),
         }),
-        j = (await r.json()) as any;
+        j = (await r.json()) as { error?: string };
       if (!r.ok) throw Error(j.error);
       await refresh();
       setNotice("Registro excluído.");
@@ -179,7 +277,15 @@ export default function BodyOS() {
     }
   }
   const name = latest(data?.settings ?? [])?.name ?? "BODY OS",
-    views: Record<string, any> = {
+    phase = latest(data?.settings ?? [])?.phase ?? PHASES[0],
+    weighed = data?.weight_logs.find((w) => w.date === today()),
+    event = data?.competition_events.find(
+      (e) => !e.archived && e.eventDate >= today(),
+    ),
+    goal =
+      data?.goals.find((g) => g.active && g.type === "principal") ??
+      data?.goals.find((g) => g.active),
+    views: Record<string, ComponentType<ViewProps>> = {
       "Visão geral": Overview,
       Alimentação: Nutrition,
       "Composição corporal": Body,
@@ -201,22 +307,13 @@ export default function BodyOS() {
         />
       )}
       <aside className={"sidebar " + (menu ? "open" : "")}>
-        <a className="brand" href="/">
+        <button className="brand" onClick={() => go(HOME)}>
           <span className="brand-icon">
             <Activity size={25} />
           </span>
           {name}
-          <span className="version">01</span>
-        </a>
-        <div className="workspace">
-          <span className="avatar">A</span>
-          <div>
-            Meu espaço <small>Atleta · Jiu-Jitsu</small>
-          </div>
-          <ChevronRight size={16} />
-        </div>
-        <span className="nav-label">SEU SISTEMA</span>
-        <nav>
+        </button>
+        <nav aria-label="Seções">
           {navigation.map(([n, Icon]) => (
             <button
               key={n}
@@ -226,58 +323,44 @@ export default function BodyOS() {
             >
               <Icon size={19} />
               {n}
-              {n === "Assistente" && <span className="mini">OS</span>}
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <Shield size={18} />
-          <p>
-            Construído para o longo prazo.
-            <small>Composição + performance.</small>
-          </p>
-        </div>
+        {data && (
+          <div className="sidebar-bottom">
+            <small>Fase atual</small>
+            <span className="pill">{phase}</span>
+          </div>
+        )}
       </aside>
       <div className="workspace-main">
-        <header className="topbar">
-          <button
-            className="mobile-only icon-button"
-            aria-label="Abrir menu"
-            onClick={() => setMenu(!menu)}
-          >
-            <Menu />
-          </button>
-          <div className="breadcrumb">
-            Meu espaço <ChevronRight size={14} />
-            <strong>{page}</strong>
-          </div>
-          <div className="header-right">
-            <span className="private-label">
-              <Shield size={14} /> Espaço pessoal
-            </span>
-            <span className="avatar small">A</span>
-          </div>
+        <header className="topbar mobile-only">
+          <span className="topbar-brand">
+            <Activity size={20} /> {name}
+          </span>
+          {data && <span className="pill">{phase}</span>}
         </header>
         <main>
           <div className="page-heading">
             <div>
-              <div className="eyebrow">
-                COMPOSIÇÃO. PERFORMANCE. CONSISTÊNCIA.
-              </div>
-              <h1>
-                {page === "Visão geral"
-                  ? "Sua melhor versão, todos os dias."
-                  : page}
-              </h1>
-              <p>
-                {page === "Visão geral"
-                  ? "Cada registro conta. O progresso vai além da balança."
-                  : "Seu histórico transforma dados em decisões melhores."}
-              </p>
+              <h1>{page === HOME ? longDate(today()) : page}</h1>
+              {page === HOME && data && (weighed || event) && (
+                <p className="today-status">
+                  {weighed && (
+                    <span>
+                      Pesagem de hoje: <strong>{fmt(weighed.weight)} kg</strong>
+                    </span>
+                  )}
+                  {event && (
+                    <span>
+                      <strong>{days(event.eventDate, today())} dias</strong> até{" "}
+                      {event.name}
+                    </span>
+                  )}
+                </p>
+              )}
+              {page === HOME && goal && <p>Objetivo: {goal.title}</p>}
             </div>
-            <button className="button primary" onClick={() => open("Peso")}>
-              <Plus size={18} /> Registrar peso
-            </button>
           </div>
           {data && (!online || pending.length > 0) && (
             <div className="card" role="status" style={{ marginBottom: 20 }}>
@@ -295,10 +378,11 @@ export default function BodyOS() {
                 .map((p) => (
                   <div key={p.mutationId}>
                     <p>
-                      {p.data.date} · {p.table}: {p.error}
+                      {TABLE_LABELS[p.table as Table] ?? "Registro"} de{" "}
+                      {p.data.date}: {p.error}
                     </p>
                     <details>
-                      <summary>Ver registro local</summary>
+                      <summary>Ver dados técnicos</summary>
                       <pre
                         style={{
                           whiteSpace: "pre-wrap",
@@ -312,8 +396,10 @@ export default function BodyOS() {
                       className="button"
                       onClick={async () => {
                         if (
-                          confirm(
-                            "Descartar esta alteração local e usar o registro do servidor?",
+                          await ask(
+                            "Descartar a alteração local?",
+                            "Descartar",
+                            "O registro do servidor passa a valer neste aparelho.",
                           )
                         ) {
                           await discardPending(p.mutationId);
@@ -328,22 +414,31 @@ export default function BodyOS() {
             </div>
           )}
           {error ? (
-            <div className="card error">
-              <p>Não foi possível carregar seus dados. {error}</p>
-              <button className="button" onClick={refresh}>
-                Tentar novamente
-              </button>
-              <a
-                className="button"
-                href="/signin-with-chatgpt?return_to=/"
-                target="_top"
-              >
-                Entrar
-              </a>
+            <div className="card load-failure" role="alert">
+              <h2>{FAILURES[error].title}</h2>
+              <p>{FAILURES[error].body}</p>
+              <div className="actions">
+                {error === "auth" && (
+                  <a
+                    className="button primary"
+                    href="/signin-with-chatgpt?return_to=/"
+                    target="_top"
+                  >
+                    Entrar
+                  </a>
+                )}
+                <button
+                  className="button"
+                  onClick={retry}
+                  disabled={retrying}
+                >
+                  {retrying ? "Tentando…" : "Tentar novamente"}
+                </button>
+              </div>
             </div>
           ) : !data ? (
             <div className="card" role="status">
-              Carregando seu espaço…
+              Carregando seus registros…
             </div>
           ) : (
             <View
@@ -355,14 +450,36 @@ export default function BodyOS() {
               notice={setNotice}
               go={go}
               remove={remove}
+              ask={ask}
             />
           )}
         </main>
-        <footer>
-          {name}
-          <span>Seu corpo. Seu ritmo. Sua evolução.</span>
-        </footer>
       </div>
+      <nav className="dock" aria-label="Atalhos">
+        <button
+          onClick={() => go(HOME)}
+          aria-current={page === HOME ? "page" : undefined}
+        >
+          <Home size={21} />
+          Hoje
+        </button>
+        {(
+          [
+            ["Peso", Scale],
+            ["Refeição", Utensils],
+            ["Check-in", Heart],
+          ] as const
+        ).map(([label, Icon]) => (
+          <button key={label} onClick={() => open(label)} disabled={!data}>
+            <Icon size={21} />
+            {label}
+          </button>
+        ))}
+        <button onClick={() => setMenu(true)} aria-expanded={menu}>
+          <Menu size={21} />
+          Menu
+        </button>
+      </nav>
       <Dialog
         open={!!modal}
         onOpenChange={(v) => {
@@ -374,7 +491,7 @@ export default function BodyOS() {
             {initial?.id ? "Editar" : "Registrar"} {modal.toLowerCase()}
           </DialogTitle>
           <DialogDescription>
-            Atualize seus dados para acompanhar composição e performance.
+            Fica salvo neste aparelho e sincroniza quando houver conexão.
           </DialogDescription>
           {data && modal && (
             <RecordForm
@@ -386,6 +503,25 @@ export default function BodyOS() {
               initial={initial}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={!!question}
+        onOpenChange={(v) => {
+          if (!v) reply(false);
+        }}
+      >
+        <DialogContent className="body-dialog confirm-dialog">
+          <DialogTitle>{question?.text}</DialogTitle>
+          <DialogDescription>{question?.detail}</DialogDescription>
+          <div className="confirm-actions">
+            <button className="button" onClick={() => reply(false)}>
+              Cancelar
+            </button>
+            <button className="button danger" onClick={() => reply(true)}>
+              {question?.action}
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
       {notice && (

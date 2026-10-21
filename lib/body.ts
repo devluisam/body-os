@@ -25,8 +25,11 @@ export const TABLES = [
 ] as const;
 export type Table = (typeof TABLES)[number];
 // Flexible payloads are validated by table-specific schemas before persistence.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- rows are schema-checked JSON
 export type Row = { id: string; date: string; [key: string]: any };
 export type Data = Record<Table, Row[]>;
+// A meal line as the form sends it; the server fills in name and macros.
+export type MealItemInput = { foodId: string; grams: number; foodSnapshot?: Row };
 export type Draft = Partial<Row>;
 export const PHASES = [
   "Redução de gordura",
@@ -76,6 +79,29 @@ export function latest(rows: Row[]) {
         b.id.localeCompare(a.id),
     )[0];
 }
+// The athlete's profile lives in `users`; screens read it here instead of assuming values.
+export function profile(data: Partial<Data>) {
+  const u = latest(data.users ?? []);
+  return {
+    height: typeof u?.height === "number" ? (u.height as number) : null,
+    age: typeof u?.age === "number" ? (u.age as number) : null,
+    sex: (u?.sex as string | undefined) ?? null,
+    bjjDays: Array.isArray(u?.bjjDays) ? (u.bjjDays as number[]) : [],
+    bjjTime: (u?.bjjTime as string | undefined) || null,
+    gymTime: (u?.gymTime as string | undefined) || null,
+  };
+}
+export function trainsToday(data: Partial<Data>, date = today()) {
+  return profile(data).bjjDays.includes(
+    new Date(date + "T12:00:00Z").getUTCDay(),
+  );
+}
+// "15:00" → "15h", "15:30" → "15h30".
+export function hour(time: string | null) {
+  if (!time) return null;
+  const [h, m] = time.split(":");
+  return `${Number(h)}h${m && m !== "00" ? m : ""}`;
+}
 export function weightMean(rows: Row[], end = today()) {
   return mean(range(rows, shift(end, -6), end).map((r) => r.weight));
 }
@@ -124,7 +150,15 @@ export function macros(items: Row[]) {
     { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
   );
 }
-export function foodMacros(f: Row, g: number) {
+type FoodValues = {
+  portion?: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+};
+export function foodMacros(f: Row | FoodValues, g: number) {
   const k = g / (f.portion || 100);
   return {
     calories: f.calories * k,
@@ -141,7 +175,13 @@ export function targets(data: Data) {
   const protein = Math.round(
     w * ([PHASES[0], PHASES[3]].includes(phase) ? 2 : 1.8),
   );
-  const bmr = 10 * w + 6.25 * 177 - 5 * 18 + 5;
+  // Profile fallbacks only apply before the profile row exists.
+  const me = profile(data),
+    bmr =
+      10 * w +
+      6.25 * (me.height ?? 177) -
+      5 * (me.age ?? 18) +
+      (me.sex === "female" ? -161 : 5);
   const calories =
     Math.round(
       (bmr * 1.55 +
@@ -403,6 +443,10 @@ export const schemas: Partial<Record<Table, z.ZodTypeAny>> = {
     active: z.boolean(),
   }),
 };
+const FOOD_SOURCES = {
+  TACO: "TACO 4ª ed. (Unicamp)",
+  USDA: "USDA FoodData Central",
+};
 export const FOOD_SEED = [
   ["Frango grelhado", 159, 32, 0, 2.5, 0],
   ["Frango desfiado", 159, 32, 0, 2.5, 0],
@@ -430,6 +474,41 @@ export const FOOD_SEED = [
   ["Queijo sem lactose", 300, 22, 3, 23, 0],
   ["Iogurte sem lactose", 65, 4, 6, 3, 0],
   ["Whey sem lactose", 380, 80, 8, 4, 0],
+  // Added 2026-09-26. Ids continue the sequence, so existing accounts receive
+  // only these rows (see readData) and edited foods keep their values.
+  ["Arroz integral cozido", 124, 2.6, 25.8, 1, 2.7, "TACO"],
+  ["Cuscuz de milho cozido", 113, 2.2, 25.3, 0.7, 2.1, "TACO"],
+  ["Mandioca cozida", 125, 0.6, 30.1, 0.3, 1.6, "TACO"],
+  ["Lentilha cozida", 93, 6.3, 16.3, 0.5, 7.9, "TACO"],
+  ["Grão-de-bico cozido", 164, 8.9, 27.4, 2.6, 7.6, "USDA"],
+  ["Pão de forma integral", 253, 9.4, 49.9, 3.7, 6.9, "TACO"],
+  ["Farofa pronta", 406, 2.1, 80.3, 9.1, 7.8, "TACO"],
+  ["Batata frita", 267, 5, 35.6, 13.1, 8.1, "TACO"],
+  ["Patinho grelhado", 219, 35.9, 0, 7.3, 0, "TACO"],
+  ["Carne moída cozida", 212, 26.7, 0, 10.9, 0, "TACO"],
+  ["Lombo de porco assado", 210, 35.7, 0, 6.4, 0, "TACO"],
+  ["Tilápia grelhada", 128, 26.2, 0, 2.7, 0, "USDA"],
+  ["Salmão grelhado", 206, 22.1, 0, 12.4, 0, "USDA"],
+  ["Atum em lata em água", 116, 25.5, 0, 0.8, 0, "USDA"],
+  ["Sardinha em lata em óleo", 285, 15.9, 0, 24, 0, "TACO"],
+  ["Ovos fritos", 240, 15.6, 1.2, 18.6, 0, "TACO"],
+  ["Brócolis cozido", 25, 2.1, 4.4, 0.5, 3.4, "TACO"],
+  ["Cenoura cozida", 30, 0.8, 6.7, 0.2, 2.6, "TACO"],
+  ["Abóbora cabotiá cozida", 48, 1.4, 10.8, 0.7, 2.5, "TACO"],
+  ["Tomate", 15, 1.1, 3.1, 0.2, 1.2, "TACO"],
+  ["Laranja", 37, 1, 8.9, 0.1, 0.8, "TACO"],
+  ["Morango", 30, 0.9, 6.8, 0.3, 1.7, "TACO"],
+  ["Abacaxi", 48, 0.9, 12.3, 0.1, 1, "TACO"],
+  ["Melancia", 33, 0.9, 8.1, 0, 0.1, "TACO"],
+  ["Manga", 72, 0.4, 19.4, 0.2, 1.6, "TACO"],
+  ["Uva", 53, 0.7, 13.6, 0.2, 0.9, "TACO"],
+  ["Abacate", 96, 1.2, 6, 8.4, 6.3, "TACO"],
+  ["Açaí polpa sem açúcar", 58, 0.8, 6.2, 3.9, 2.6, "TACO"],
+  ["Mel", 309, 0, 84, 0, 0, "TACO"],
+  ["Pasta de amendoim", 588, 25.1, 20, 50.4, 6, "USDA"],
+  ["Castanha-do-pará", 643, 14.5, 15.1, 63.5, 7.9, "TACO"],
+  ["Castanha de caju torrada", 570, 18.5, 29.1, 46.3, 3.7, "TACO"],
+  ["Café sem açúcar", 9, 0.7, 1.5, 0.1, 0, "TACO"],
 ].map(
   (r, i) =>
     ({
@@ -443,8 +522,9 @@ export const FOOD_SEED = [
       fat: r[4],
       fiber: r[5],
       sodium: 0,
-      source:
-        "Valor inicial aproximado por 100 g/ml; confirme o preparo e rótulo. Sódio não informado.",
+      source: r[6]
+        ? `${FOOD_SOURCES[r[6] as keyof typeof FOOD_SOURCES]}, por 100 g/ml; valor aproximado, confirme o preparo e o rótulo. Sódio não informado.`
+        : "Valor inicial aproximado por 100 g/ml; confirme o preparo e rótulo. Sódio não informado.",
     }) as Row,
 );
 export const MEAL_SLOTS = [
@@ -452,35 +532,35 @@ export const MEAL_SLOTS = [
     name: "Café da manhã",
     time: "07:00",
     share: 0.22,
-    prefer: /ovo|aveia|tapioca|pao|\bmaca\b|banana|mamao|iogurte|leite|queijo|whey|manteiga|suco/,
+    prefer: /ovo|aveia|tapioca|cuscuz|pao|\bmaca\b|banana|mamao|iogurte|leite|queijo|whey|manteiga|suco|cafe/,
     note: "Comece com proteína. O carboidrato acompanha o que você vai fazer de manhã.",
   },
   {
     name: "Lanche da manhã",
     time: "10:00",
     share: 0.1,
-    prefer: /banana|\bmaca\b|mamao|iogurte|whey|queijo|aveia|ovo/,
+    prefer: /banana|\bmaca\b|mamao|laranja|morango|iogurte|whey|queijo|aveia|ovo|castanha/,
     note: "Lanche pequeno: uma fruta e uma fonte de proteína resolvem.",
   },
   {
     name: "Almoço",
     time: "12:30",
     share: 0.3,
-    prefer: /arroz|feijao|frango|carne|peixe|macarrao|batata|salada|vinagrete|azeite/,
+    prefer: /arroz|feijao|lentilha|grao|frango|carne|patinho|peixe|tilapia|salmao|atum|macarrao|batata|mandioca|salada|brocolis|cenoura|abobora|tomate|vinagrete|azeite/,
     note: "Prato principal do dia: proteína, carboidrato e salada.",
   },
   {
     name: "Lanche da tarde",
     time: "16:00",
     share: 0.1,
-    prefer: /banana|\bmaca\b|mamao|iogurte|whey|tapioca|pao|aveia/,
+    prefer: /banana|\bmaca\b|mamao|manga|abacaxi|iogurte|whey|tapioca|cuscuz|pao|aveia|pasta de amendoim/,
     note: "Antes do treino, carboidrato de digestão fácil costuma cair melhor.",
   },
   {
     name: "Jantar",
     time: "20:00",
     share: 0.23,
-    prefer: /frango|peixe|carne|ovo|salada|vinagrete|arroz|batata|legume/,
+    prefer: /frango|peixe|tilapia|salmao|atum|carne|patinho|ovo|salada|brocolis|cenoura|abobora|vinagrete|arroz|batata|mandioca|cuscuz|legume/,
     note: "Proteína e vegetais. Ajuste o carboidrato ao treino do dia.",
   },
   {
@@ -611,15 +691,19 @@ export function mealIdea(
       ? 30
       : /queijo/i.test(f.name)
         ? 40
-        : f.fat >= 50
+        : f.fat >= 80
           ? 5
-          : f.protein >= 20
-            ? 160
-            : f.name.includes("Feijão")
-              ? 80
-              : f.carbs > 20
-                ? carbPortion
-                : 100,
+          : f.fat >= 40
+            ? 15
+            : f.protein >= 20
+              ? 160
+              : f.name.includes("Feijão")
+                ? 80
+                : f.calories > 300 && f.carbs > 50
+                  ? 40
+                  : f.carbs > 20
+                    ? carbPortion
+                    : 100,
   }));
   // With a slot chosen, the portions answer that meal's share of the day
   // instead of the whole day. Condiments and oils keep their small amount.

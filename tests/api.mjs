@@ -23,7 +23,7 @@ async function request(path = "/api/data", method = "GET", body) {
 }
 const before = await request();
 assert.equal(before.status, 200);
-assert.equal(before.body.foods.length, 26);
+assert.equal(before.body.foods.length, 59);
 assert.equal(before.body.weight_logs.length, 1);
 async function save(table, data) {
   const r = await request("/api/data", "POST", {

@@ -1,5 +1,12 @@
-import { schemas, today, foodMacros, macros, navyBF } from "./body.ts";
-import type { Data, Row, Table } from "./body.ts";
+import {
+  schemas,
+  today,
+  foodMacros,
+  macros,
+  navyBF,
+  profile,
+} from "./body.ts";
+import type { Data, MealItemInput, Row, Table } from "./body.ts";
 
 export type Pending = {
   table: Table;
@@ -71,7 +78,7 @@ export function project(source: Data, queue: Pending[]): Data {
   for (const item of queue) {
     const row: Row = { ...item.data, _pending: true };
     if (item.table === "meals") {
-      row.items = row.items.map((x: any, i: number) => {
+      row.items = row.items.map((x: MealItemInput, i: number) => {
         const food =
           data.foods.find((f) => f.id === x.foodId) ?? x.foodSnapshot;
         return {
@@ -107,7 +114,8 @@ export function project(source: Data, queue: Pending[]): Data {
         waketime: row.waketime,
       });
     if (item.table === "body_measurements") {
-      const bf = navyBF(177, row.abdomen, row.neck);
+      const height = profile(data).height;
+      const bf = height ? navyBF(height, row.abdomen, row.neck) : null;
       if (bf !== null)
         put("body_metrics", {
           id: `navy-${row.date}`,
@@ -142,7 +150,7 @@ export async function enqueue(table: Table, input: Record<string, unknown>) {
     row.id = canonicalId(table, row);
     if (table === "meals") {
       const available = project(cache.data, cache.pending).foods;
-      row.items = row.items.map((x: any) => {
+      row.items = row.items.map((x: MealItemInput) => {
         const foodSnapshot = available.find((f) => f.id === x.foodId);
         if (!foodSnapshot)
           throw Error("Alimento não encontrado. Revise a refeição.");
@@ -166,6 +174,16 @@ export async function enqueue(table: Table, input: Record<string, unknown>) {
     await storage(cache.owner, cache);
     return cache;
   });
+}
+// Tells the shell which recovery to offer: sign in again, retry later, or update the app.
+// Explicit field instead of a parameter property: Node's type stripping runs this file in tests.
+export class SyncError extends Error {
+  kind: "auth" | "server" | "account";
+  constructor(kind: "auth" | "server" | "account", message: string) {
+    super(message);
+    this.name = "SyncError";
+    this.kind = kind;
+  }
 }
 export async function synchronize(): Promise<{
   cache: Cache;
@@ -193,16 +211,22 @@ export async function synchronize(): Promise<{
       response.redirected
     ) {
       await storage("locked", true);
-      throw Error("Entre novamente para acessar e sincronizar seus registros.");
+      throw new SyncError(
+        "auth",
+        "Entre novamente para acessar e sincronizar seus registros.",
+      );
     }
     if (!response.ok) {
       const cache = await cached();
       if (cache) return { cache, online: false };
-      throw Error("Servidor indisponível.");
+      throw new SyncError("server", "O servidor não respondeu.");
     }
     const identity = response.headers.get("X-BodyOS-Owner");
     if (!identity)
-      throw Error("Não foi possível confirmar a conta. Atualize o aplicativo.");
+      throw new SyncError(
+        "account",
+        "Não foi possível confirmar a conta. Atualize o aplicativo.",
+      );
     const owner = decodeURIComponent(identity);
     const existing = await storage<Cache>(owner);
     const cache: Cache = {
@@ -232,7 +256,8 @@ export async function synchronize(): Promise<{
       if (!result.ok) {
         if (result.status === 401 || result.status === 403) {
           await storage("locked", true);
-          throw Error(
+          throw new SyncError(
+            "auth",
             "Entre novamente na conta que criou os registros pendentes.",
           );
         }

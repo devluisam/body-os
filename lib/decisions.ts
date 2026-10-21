@@ -5,12 +5,15 @@ import {
   targets,
   macros,
   fmt,
-  readiness,
   PHASES,
-  composition,
   range,
   shift,
+  profile,
+  trainsToday,
+  hour,
 } from "./body";
+const clock = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 export function nextStep(data: Data) {
   const time = new Intl.DateTimeFormat("pt-BR", {
       timeZone: "America/Sao_Paulo",
@@ -20,8 +23,11 @@ export function nextStep(data: Data) {
     }).format(new Date()),
     [h, m] = time.split(":").map(Number),
     minutes = h * 60 + m,
-    day = new Date(today() + "T12:00:00Z").getUTCDay(),
-    train = [1, 3, 5].includes(day),
+    me = profile(data),
+    start = me.bjjTime
+      ? Number(me.bjjTime.slice(0, 2)) * 60 + Number(me.bjjTime.slice(3, 5))
+      : null,
+    train = trainsToday(data) && start != null,
     meals = data.meals
       .filter((x) => x.date === today())
       .sort((a, b) => b.time.localeCompare(a.time)),
@@ -30,13 +36,13 @@ export function nextStep(data: Data) {
     t = targets(data),
     total = macros(meals),
     settings = latest(data.settings);
-  let action = !check
+  const action = !check
     ? "Comece com um check-in rápido de sono, fome e energia."
     : check.energy < 4 || check.fatigue > 7
       ? "Sua recuperação pede atenção. Priorize descanso e converse com seu treinador antes de aumentar a carga."
-      : train && minutes < 900
-        ? `Jiu-Jitsu na rotina às 15h. ${minutes < 780 ? "Planeje uma refeição entre 12h e 13h." : "Se estiver perto do treino, escolha uma porção de fácil digestão conforme sua tolerância."}`
-        : train && minutes >= 1020
+      : train && minutes < start!
+        ? `Jiu-Jitsu hoje às ${hour(me.bjjTime)}. ${minutes < start! - 120 ? `Planeje uma refeição entre ${hour(clock(start! - 180))} e ${hour(clock(start! - 120))}.` : "Se estiver perto do treino, escolha uma porção de fácil digestão conforme sua tolerância."}`
+        : train && minutes >= start! + 120
           ? "Após o treino, faça sua refeição habitual com proteína e carboidrato conforme a fome."
           : (check.steps ?? 0) < (settings?.steps ?? 8000)
             ? "Se estiver recuperado, uma caminhada leve pode completar seu movimento do dia."

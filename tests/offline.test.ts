@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
-import { TABLES, today, FOOD_SEED } from "../lib/body.ts";
+import { TABLES, FOOD_SEED } from "../lib/body.ts";
 import type { Data } from "../lib/body.ts";
 import {
   synchronize,
@@ -55,7 +55,7 @@ test("offline queue survives loss of connection, isolates accounts and retains c
   connected = false;
   await enqueue("weight_logs", { weight: 84.5 });
   await enqueue("weight_logs", { weight: 84.4 });
-  let state = await cached();
+  const state = await cached();
   assert.equal(state!.pending.length, 1);
   assert.equal(
     project(state!.data, state!.pending).weight_logs[0].weight,

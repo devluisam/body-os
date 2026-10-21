@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -22,7 +22,6 @@ import {
   Trash2,
   Trophy,
   Utensils,
-  Zap,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -58,11 +57,15 @@ import {
   mealPlan,
   slotAt,
   nowTime,
-  PHASES,
+  profile,
+  trainsToday,
+  hour,
 } from "@/lib/body";
 import { delivery } from "@/lib/coach";
 import { nextStep, phaseSuggestion } from "@/lib/decisions";
 import { RecordForm, Save } from "./forms";
+export type ViewProps = Props;
+type MealItem = { name?: string; grams?: number };
 type Props = {
   data: Data;
   open: (kind: string, row?: Draft) => void;
@@ -71,23 +74,42 @@ type Props = {
   notice: (s: string) => void;
   go: (s: string) => void;
   remove: (table: Table, id: string) => void;
+  ask: (question: string, action?: string, detail?: string) => Promise<boolean>;
 };
-export function Stat({ title, value, unit, foot, icon }: any) {
+export function Stat({
+  title,
+  value,
+  unit,
+  foot,
+  icon,
+}: {
+  title: ReactNode;
+  value: ReactNode;
+  unit?: string;
+  foot?: ReactNode;
+  icon?: ReactNode;
+}) {
+  // A missing value is a dash on its own: "— %" reads like a measured number.
+  const missing = value === "—";
   return (
     <div className="stat card">
       <div className="stat-title">
         {title}
         {icon}
       </div>
-      <div className="stat-value">
+      <div className={"stat-value" + (missing ? " missing" : "")}>
         {value}
-        <span>{unit}</span>
+        {!missing && unit && <span>{unit}</span>}
       </div>
       <small>{foot}</small>
     </div>
   );
 }
-function Empty({ children }: any) {
+function shortDate(date: string) {
+  const [y, m, d] = date.split("-");
+  return y === today().slice(0, 4) ? `${d}/${m}` : `${d}/${m}/${y}`;
+}
+function Empty({ children }: { children: ReactNode }) {
   return (
     <div className="empty">
       <Activity size={24} />
@@ -95,7 +117,15 @@ function Empty({ children }: any) {
     </div>
   );
 }
-function Button({ children, onClick, primary = false }: any) {
+function Button({
+  children,
+  onClick,
+  primary = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  primary?: boolean;
+}) {
   return (
     <button
       className={"button " + (primary ? "primary" : "")}
@@ -105,7 +135,19 @@ function Button({ children, onClick, primary = false }: any) {
     </button>
   );
 }
-function Meter({ name, value, total, color = "#c3f576", unit = "g" }: any) {
+function Meter({
+  name,
+  value,
+  total,
+  color = "var(--primary)",
+  unit = "g",
+}: {
+  name: string;
+  value: number;
+  total: number;
+  color?: string;
+  unit?: string;
+}) {
   return (
     <div className="meter">
       <div>
@@ -120,7 +162,7 @@ function Meter({ name, value, total, color = "#c3f576", unit = "g" }: any) {
       <div className="track">
         <i
           style={{
-            width: Math.min(100, (value / total) * 100) + "%",
+            transform: `scaleX(${total ? Math.min(1, value / total) : 0})`,
             background: color,
           }}
         />
@@ -131,11 +173,12 @@ function Meter({ name, value, total, color = "#c3f576", unit = "g" }: any) {
 export function Chart({
   data,
   measure = "weight",
-  compact = false,
+  fill = false,
 }: {
   data: Data;
   measure?: string;
-  compact?: boolean;
+  // Grow to the height of the card beside it instead of a fixed height.
+  fill?: boolean;
 }) {
   const [period, setPeriod] = useState(30);
   const dates = [
@@ -181,11 +224,13 @@ export function Chart({
               : "Estimativas e medições registradas"}
           </small>
         </div>
-        <div className="tabs small-tabs">
+        <div className="tabs small-tabs" role="group" aria-label="Período">
           {[30, 60, 90].map((n) => (
             <button
               key={n}
               className={period === n ? "selected" : ""}
+              aria-pressed={period === n}
+              aria-label={`Últimos ${n} dias`}
               onClick={() => setPeriod(n)}
             >
               {n}d
@@ -196,8 +241,15 @@ export function Chart({
       {points.length === 0 ? (
         <Empty>Seus gráficos começam com os primeiros registros.</Empty>
       ) : (
-        <div className="chart" style={{ height: compact ? 205 : 260 }}>
-          <ResponsiveContainer width="100%" height="100%">
+        <div
+          className="chart"
+          style={fill ? { flex: 1, minHeight: 240 } : { height: 260 }}
+        >
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            initialDimension={{ width: 600, height: 260 }}
+          >
             <LineChart
               data={points}
               margin={{ top: 12, right: 10, left: -18, bottom: 5 }}
@@ -234,7 +286,7 @@ export function Chart({
                   border: "1px solid var(--border)",
                   borderRadius: 8,
                 }}
-                formatter={(v: any) => fmt(Number(v))}
+                formatter={(v) => fmt(Number(v))}
               />
               <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
               {measure === "weight" ? (
@@ -252,7 +304,7 @@ export function Chart({
                     name="Média 7 dias (kg)"
                     yAxisId="kg"
                     dataKey="average"
-                    stroke="#c3f576"
+                    stroke="var(--primary)"
                     strokeWidth={2.5}
                     dot={false}
                   />
@@ -269,7 +321,7 @@ export function Chart({
                     name="Massa magra (kg)"
                     yAxisId="kg"
                     dataKey="lean"
-                    stroke="#c3f576"
+                    stroke="var(--primary)"
                   />
                   <Line
                     name="Gordura (kg)"
@@ -289,7 +341,7 @@ export function Chart({
                   name="Medida (cm)"
                   yAxisId="kg"
                   dataKey={measure}
-                  stroke="#c3f576"
+                  stroke="var(--primary)"
                   strokeWidth={2}
                 />
               )}
@@ -306,6 +358,89 @@ export function Chart({
     </>
   );
 }
+// The one thing to log next, in the order the day happens:
+// morning weigh-in, recovery check-in, then the next planned meal.
+function TodayAction({ data, open, go }: Props) {
+  const plan = mealPlan(data),
+    me = profile(data),
+    weighed = data.weight_logs.some((x) => x.date === today()),
+    checked = data.daily_checkins.some((x) => x.date === today()),
+    next = plan.next,
+    meals = plan.slots.filter((s) => s.done).length,
+    bjj = trainsToday(data) && me.bjjTime ? hour(me.bjjTime) : null;
+  const step = !weighed
+    ? {
+        Icon: Scale,
+        title: "Registre a pesagem da manhã",
+        body: "Em jejum, depois do banheiro e sem kimono. A média de 7 dias aparece a partir de 3 pesagens na semana.",
+        label: "Registrar peso",
+        act: () => open("Peso"),
+      }
+    : !checked
+      ? {
+          Icon: Heart,
+          title: "Faça o check-in de hoje",
+          body: "Sono, energia, fadiga, dor e estresse. Leva um minuto e alimenta a leitura de recuperação.",
+          label: "Fazer check-in",
+          act: () => open("Check-in"),
+        }
+      : next
+        ? {
+            Icon: Utensils,
+            title: `${next.name} por volta das ${next.time}`,
+            body:
+              `Cerca de ${fmt(next.target.calories, 0)} kcal e ${fmt(next.target.protein, 0)} g de proteína.` +
+              (bjj ? ` Jiu-Jitsu hoje às ${bjj}.` : ""),
+            label: "Registrar refeição",
+            act: () =>
+              open("Refeição", {
+                date: today(),
+                name: next.name,
+                time: next.name === slotAt().name ? nowTime() : next.time,
+              }),
+          }
+        : {
+            Icon: Check,
+            title: "Registros do dia completos",
+            body: "Pesagem, check-in e refeições do plano estão registrados. Se treinar, registre a sessão para acompanhar carga e recuperação.",
+            label: "Registrar treino",
+            act: () => open("Treino"),
+          };
+  const checklist: [string, boolean][] = [
+    ["Pesagem", weighed],
+    ["Check-in", checked],
+    [`Refeições ${meals}/${plan.slots.length}`, !next],
+  ];
+  return (
+    <section className="card today-card" aria-labelledby="today-title">
+      <span className="today-icon">
+        <step.Icon size={22} />
+      </span>
+      <div className="today-body">
+        <small>Próximo registro</small>
+        <h2 id="today-title">{step.title}</h2>
+        <p>{step.body}</p>
+        <ul className="day-checklist" aria-label="Registros de hoje">
+          {checklist.map(([label, done]) => (
+            <li key={label} className={done ? "done" : ""}>
+              {done ? <Check size={14} /> : <span aria-hidden />}
+              {label}
+              <span className="sr-only">{done ? " feito" : " pendente"}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="today-actions">
+        <button className="button primary" onClick={step.act}>
+          <Plus size={17} /> {step.label}
+        </button>
+        <button className="text-button" onClick={() => go("Assistente")}>
+          Orientação do dia <ChevronRight size={15} />
+        </button>
+      </div>
+    </section>
+  );
+}
 export function Overview(p: Props) {
   const { data, open, go } = p,
     c = composition(data),
@@ -317,81 +452,63 @@ export function Overview(p: Props) {
       shift(today(), -1),
     ).reduce((a, x) => a + x.duration * x.rpe, 0),
     r = readiness(check, recent),
-    event = data.competition_events.find((e) => !e.archived),
-    bjj = [1, 3, 5].includes(new Date(today() + "T12:00:00Z").getUTCDay());
+    event = data.competition_events.find(
+      (e) => !e.archived && e.eventDate >= today(),
+    ),
+    me = profile(data),
+    bjj = trainsToday(data),
+    lastWeight = latest(data.weight_logs),
+    week = range(data.weight_logs, shift(today(), -6)).length,
+    planned = mealPlan(data).next,
+    loggedMeals = data.meals.some((x) => x.date === today());
   return (
     <>
-      <div className="goal-strip">
-        <div className="goal-symbol">
-          <Target size={22} />
-        </div>
-        <div>
-          <span>SEU OBJETIVO PRINCIPAL</span>
-          <h3>Reduzir gordura corporal preservando massa muscular.</h3>
-        </div>
-        <span className="pill">
-          {latest(data.settings)?.phase ?? PHASES[0]}
-        </span>
-      </div>
+      <TodayAction {...p} />
       <div className="stat-grid">
         <Stat
           title="Peso atual"
-          value={fmt(c.weight)}
+          value={lastWeight ? fmt(lastWeight.weight) : "—"}
           unit="kg"
           foot={
-            latest(data.weight_logs)?.source
-              ? "Referência inicial aproximada"
-              : "Sem kimono · " + latest(data.weight_logs)?.date
+            !lastWeight
+              ? "Nenhuma pesagem registrada"
+              : lastWeight.source
+                ? "Referência inicial informada"
+                : "Sem kimono · " + shortDate(lastWeight.date)
           }
           icon={<Scale />}
         />
         <Stat
           title="Média de 7 dias"
-          value={fmt(weightMean(data.weight_logs))}
+          value={week >= 3 ? fmt(weightMean(data.weight_logs)) : "—"}
           unit="kg"
-          foot="Uma visão além das oscilações"
+          foot={
+            week >= 3
+              ? `${week} pesagens nos últimos 7 dias`
+              : `${week} de 3 pesagens para calcular`
+          }
           icon={<Activity />}
         />
         <Stat
           title="Gordura corporal"
           value={fmt(c.bf)}
           unit="%"
-          foot="Estimativa aproximada"
+          foot={c.bf == null ? "Sem medição registrada" : "Estimativa, não medição exata"}
           icon={<Target />}
         />
         <Stat
           title="Cintura"
           value={fmt(c.waist)}
           unit="cm"
-          foot="Acompanhe sua evolução"
+          foot={c.waist == null ? "Sem medida registrada" : "Última medida"}
           icon={<BarChart3 />}
         />
       </div>
       <div className="home-grid">
-        <div className="stack">
-          <section className="card">
-            <Chart data={data} compact />
-          </section>
-          <section className="card action-card">
-            <span className="action-icon">
-              <Sparkles size={25} />
-            </span>
-            <div>
-              <small>SEU PRÓXIMO PASSO</small>
-              <h2>O que faço agora?</h2>
-              <p>
-                {bjj
-                  ? "Jiu-Jitsu na rotina às 15h. Organize sua refeição e chegue com energia."
-                  : "Organize alimentação, movimento e recuperação para o seu dia."}
-              </p>
-              <Button primary onClick={() => go("Assistente")}>
-                O QUE FAÇO AGORA? <ArrowUpRight size={17} />
-              </Button>
-            </div>
-          </section>
-        </div>
-        <div className="stack">
-          <section className="card nutrition-card">
+        <section className="card chart-card">
+          <Chart data={data} fill />
+        </section>
+        <section className="card nutrition-card">
             <div className="card-head">
               <h2>Alimentação de hoje</h2>
               <Utensils size={18} className="accent" />
@@ -402,13 +519,23 @@ export function Overview(p: Props) {
                 {
                   "--progress":
                     Math.min(100, (m.calories / t.calories) * 100) + "%",
-                } as any
+                } as CSSProperties
               }
             >
-              <div>
-                <strong>{fmt(Math.max(0, t.calories - m.calories), 0)}</strong>
-                <small>kcal restantes</small>
-              </div>
+              {loggedMeals ? (
+                <div>
+                  <strong>
+                    {fmt(Math.max(0, t.calories - m.calories), 0)}
+                  </strong>
+                  <small>kcal restantes</small>
+                </div>
+              ) : (
+                <div>
+                  <strong>{fmt(t.calories, 0)}</strong>
+                  <small>kcal de meta</small>
+                  <small>sem registro hoje</small>
+                </div>
+              )}
             </div>
             <Meter name="Proteína" value={m.protein} total={t.protein} />
             <Meter
@@ -423,24 +550,18 @@ export function Overview(p: Props) {
               total={t.fat}
               color="#efa26b"
             />
-            {(() => {
-              const next = mealPlan(data).next;
-              return (
-                <p className="insight">
-                  {next
-                    ? `Próxima: ${next.name} por volta das ${next.time} · ~${fmt(
-                        next.target.calories,
-                        0,
-                      )} kcal e ${fmt(next.target.protein, 0)} g de proteína.`
-                    : "Todas as refeições do plano já têm registro hoje."}
-                </p>
-              );
-            })()}
+            <p className="insight">
+              {planned
+                ? `Próxima: ${planned.name} por volta das ${planned.time} · ~${fmt(
+                    planned.target.calories,
+                    0,
+                  )} kcal e ${fmt(planned.target.protein, 0)} g de proteína.`
+                : "Todas as refeições do plano já têm registro hoje."}
+            </p>
             <Button onClick={() => open("Refeição")}>
               <Plus size={16} /> Registrar refeição
             </Button>
           </section>
-        </div>
       </div>
       <div className="bottom-grid">
         <section className="card">
@@ -453,11 +574,17 @@ export function Overview(p: Props) {
               <Dumbbell />
             </span>
             <div>
-              <h3>{bjj ? "Jiu-Jitsu" : "Rotina flexível"}</h3>
+              <h3>{bjj ? "Jiu-Jitsu" : "Sem Jiu-Jitsu hoje"}</h3>
               <p>
                 {bjj
-                  ? "15:00 · aproximadamente 2h"
-                  : "Musculação às 6h, se for seu dia"}
+                  ? me.bjjTime
+                    ? `Hoje às ${hour(me.bjjTime)}`
+                    : "Horário não configurado"
+                  : me.gymTime
+                    ? `Musculação às ${hour(me.gymTime)}, se for seu dia`
+                    : me.bjjDays.length
+                      ? "Dia livre na sua rotina"
+                      : "Dias de treino não configurados"}
               </p>
             </div>
           </div>
@@ -473,7 +600,7 @@ export function Overview(p: Props) {
           <div className="readiness">
             <strong>
               {r ?? "—"}
-              <small>/100</small>
+              {r != null && <small>/100</small>}
             </strong>
             <span className="pill">
               {r == null
@@ -496,24 +623,27 @@ export function Overview(p: Props) {
           </div>
           <div className="readiness">
             <strong>
-              {event ? days(event.eventDate, today()) : "Nov"}
-              <small>{event ? "dias" : " · 2026"}</small>
+              {event ? days(event.eventDate, today()) : "—"}
+              {event && <small>dias</small>}
             </strong>
           </div>
-          <p>{event ? event.name : "Data e categoria a confirmar"}</p>
+          <p>{event ? event.name : "Nenhum evento cadastrado"}</p>
           <button className="text-button" onClick={() => go("Campeonato")}>
-            Preparar com estratégia <ChevronRight size={15} />
+            {event ? "Ver preparação" : "Cadastrar evento"}{" "}
+            <ChevronRight size={15} />
           </button>
         </section>
       </div>
       <div className="quick-bar">
         <span>Registro rápido</span>
-        {[
-          ["Peso", Scale],
-          ["Refeição", Utensils],
-          ["Treino", Dumbbell],
-          ["Check-in", Heart],
-        ].map(([label, Icon]: any) => (
+        {(
+          [
+            ["Peso", Scale],
+            ["Refeição", Utensils],
+            ["Treino", Dumbbell],
+            ["Check-in", Heart],
+          ] as const
+        ).map(([label, Icon]) => (
           <button key={label} onClick={() => open(label)}>
             <Icon size={16} />
             {label}
@@ -535,8 +665,10 @@ export function DayPlan({
     <section className="card">
       <div className="card-head">
         <div>
-          <small className="accent">ROTINA DO DIA</small>
           <h2>Plano de refeições</h2>
+          <small>
+            {isToday ? "Horários sugeridos para hoje" : shortDate(date)}
+          </small>
         </div>
         <Clock size={18} className="accent" />
       </div>
@@ -553,7 +685,7 @@ export function DayPlan({
                     .map(
                       (x) =>
                         `${x.time} ${(x.items ?? [])
-                          .map((i: any) => i.name)
+                          .map((i: MealItem) => i.name)
                           .filter(Boolean)
                           .join(", ")}`.trim(),
                     )
@@ -631,9 +763,13 @@ export function Nutrition(p: Props) {
           <Stat
             key={label as string}
             title={label}
-            value={fmt(Number(v), 0)}
+            value={meals.length ? fmt(Number(v), 0) : "—"}
             unit={unit}
-            foot={`Meta: ${fmt(Number(max), 0)} ${unit}`}
+            foot={
+              meals.length
+                ? `Meta: ${fmt(Number(max), 0)} ${unit}`
+                : `Sem registro · meta ${fmt(Number(max), 0)} ${unit}`
+            }
           />
         ))}
       </div>
@@ -653,7 +789,7 @@ export function Nutrition(p: Props) {
                   </h3>
                   <p>
                     {x.items
-                      .map((i: any) => `${i.grams} g ${i.name}`)
+                      .map((i: MealItem) => `${i.grams} g ${i.name}`)
                       .join(" · ")}
                   </p>
                   <small>
@@ -747,7 +883,7 @@ export function MealPlanner({ data, save, notice }: Props) {
   const [available, setAvailable] = useState(""),
     [hunger, setHunger] = useState(5),
     [training, setTraining] = useState(false),
-    [time, setTime] = useState("15:00"),
+    [time, setTime] = useState(profile(data).bjjTime ?? ""),
     [after, setAfter] = useState(false),
     [items, setItems] = useState<Row[]>([]),
     [kind, setKind] = useState("PF"),
@@ -761,8 +897,8 @@ export function MealPlanner({ data, save, notice }: Props) {
     <section className="card planner">
       <div className="card-head">
         <div>
-          <small className="accent">ALIMENTAÇÃO INTELIGENTE</small>
           <h2>O que eu como agora?</h2>
+          <small>Monta uma refeição com o que você tem ou pede fora</small>
         </div>
         <Sparkles className="accent" />
       </div>
@@ -1045,7 +1181,7 @@ export function Body(p: Props) {
     </>
   );
 }
-function Photos({ data, refresh, notice }: Props) {
+function Photos({ data, refresh, notice, ask }: Props) {
   const [view, setView] = useState("Frente"),
     [offset, setOffset] = useState(30),
     [busy, setBusy] = useState(false);
@@ -1096,9 +1232,13 @@ function Photos({ data, refresh, notice }: Props) {
           <div key={i} className="photo-slot">
             {x ? (
               <>
+                {/* Private photo behind auth: served as-is, so no next/image loader. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={"/api/photos?id=" + x.id}
                   alt={`${view}, ${x.date}`}
+                  loading="lazy"
+                  decoding="async"
                 />
                 <small>
                   {i === 0 ? "Mais recente" : "Anterior"} · {x.date}
@@ -1106,7 +1246,14 @@ function Photos({ data, refresh, notice }: Props) {
                 <button
                   className="text-button"
                   onClick={async () => {
-                    if (!confirm("Excluir esta foto?")) return;
+                    if (
+                      !(await ask(
+                        "Excluir esta foto?",
+                        "Excluir",
+                        "O arquivo é apagado do armazenamento privado e não pode ser recuperado.",
+                      ))
+                    )
+                      return;
                     const r = await fetch("/api/photos", {
                       method: "DELETE",
                       headers: { "Content-Type": "application/json" },
@@ -1141,7 +1288,7 @@ function Photos({ data, refresh, notice }: Props) {
           f.set("view", view);
           try {
             const r = await fetch("/api/photos", { method: "POST", body: f }),
-              j = (await r.json()) as any;
+              j = (await r.json()) as { error?: string };
             if (!r.ok) throw Error(j.error);
             await refresh();
             notice("Foto salva com acesso privado.");
@@ -1211,9 +1358,9 @@ export function Training({ data, open, remove }: Props) {
       {tab === "Jiu-Jitsu" && (
         <>
           <div className="gas-header">
-            <Flame size={26} />
-            <h2>GAS TANK</h2>
-            <small>Seu condicionamento no tatame · últimos 7 dias</small>
+            <Flame size={22} />
+            <h2>Condicionamento no tatame</h2>
+            <small>Últimos 7 dias</small>
           </div>
           <div className="stat-grid">
             <Stat
@@ -1491,12 +1638,11 @@ export function Competition({ data, open }: Props) {
       <div className="card competition-feature">
         <Trophy size={32} />
         <div>
-          <small>COMPETITION MODE</small>
-          <h2>{active?.name ?? "Seu primeiro campeonato"}</h2>
+          <h2>{active?.name ?? "Nenhum evento cadastrado"}</h2>
           <p>
             {active
-              ? `${active.eventDate} · ${active.category}`
-              : "Novembro de 2026 · data e categoria a confirmar"}
+              ? `${shortDate(active.eventDate)} · ${active.category}`
+              : "Cadastre data, categoria e condições da pesagem quando a organização confirmar."}
           </p>
         </div>
         <span className="pill">Performance em primeiro lugar</span>
@@ -1504,21 +1650,29 @@ export function Competition({ data, open }: Props) {
       <div className="stat-grid section">
         <Stat
           title="Peso sem kimono"
-          value={fmt(c.weight)}
+          value={latest(data.weight_logs) ? fmt(c.weight) : "—"}
           unit="kg"
-          foot="Última referência"
+          foot="Última pesagem"
         />
         <Stat
           title="Com kimono (estimado)"
-          value={fmt(c.weight + (active?.gi ?? 2.3))}
+          value={active && latest(data.weight_logs) ? fmt(c.weight + active.gi) : "—"}
           unit="kg"
-          foot={`${fmt(active?.gi ?? 2.3)} kg de kimono`}
+          foot={
+            active
+              ? `${fmt(active.gi)} kg de kimono informados`
+              : "Informe o peso do kimono no evento"
+          }
         />
         <Stat
           title="Referência intermediária"
-          value={fmt(active?.reference ?? 80)}
+          value={active ? fmt(active.reference) : "—"}
           unit="kg"
-          foot="Não substitui composição corporal"
+          foot={
+            active
+              ? "Não substitui composição corporal"
+              : "Defina ao cadastrar o evento"
+          }
         />
         <Stat
           title="Dias até o evento"
@@ -1597,17 +1751,23 @@ export function Competition({ data, open }: Props) {
                       {x.name} · {x.withGi ? "com kimono" : "sem kimono"}
                     </td>
                     <td>{fmt(x.limit)} kg</td>
-                    <td>
-                      {fmt(c.weight + (x.withGi ? (active?.gi ?? 2.3) : 0))} kg
-                    </td>
-                    <td>
-                      {fmt(
-                        c.weight +
-                          (x.withGi ? (active?.gi ?? 2.3) : 0) -
-                          x.limit,
-                      )}{" "}
-                      kg
-                    </td>
+                    {(() => {
+                      // With-gi weight needs the kimono weight from a real event.
+                      const current =
+                        !latest(data.weight_logs) || (x.withGi && !active)
+                          ? null
+                          : c.weight + (x.withGi ? active!.gi : 0);
+                      return (
+                        <>
+                          <td>{current == null ? "—" : `${fmt(current)} kg`}</td>
+                          <td>
+                            {current == null
+                              ? "Cadastre o evento"
+                              : `${fmt(current - x.limit)} kg`}
+                          </td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 ))}
               </tbody>
@@ -1761,8 +1921,8 @@ export function Assistant(p: Props) {
     [mode, setMode] = useState("basic");
   useEffect(() => {
     fetch("/api/chat")
-      .then((r) => r.json())
-      .then((j: any) => setMode(j.mode))
+      .then((r) => r.json() as Promise<{ mode: string }>)
+      .then((j) => setMode(j.mode))
       .catch(() => {});
   }, []);
   async function send(text: string) {
@@ -1773,7 +1933,7 @@ export function Assistant(p: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: text }),
         }),
-        j = (await r.json()) as any;
+        j = (await r.json()) as { error?: string };
       if (!r.ok) throw Error(j.error);
       await refresh();
       setMessage("");
@@ -1877,10 +2037,57 @@ export function Assistant(p: Props) {
           <Send size={18} />
         </button>
       </form>
-      <MealPlanner {...p} />
+      <section className="card section link-card">
+        <div>
+          <h2>Montar uma refeição agora</h2>
+          <p>
+            O planejador de refeições usa o que você tem em casa ou sugere um
+            pedido, dentro da meta de cada horário.
+          </p>
+        </div>
+        <button className="button" onClick={() => p.go("Alimentação")}>
+          Abrir em Alimentação <ChevronRight size={16} />
+        </button>
+      </section>
     </>
   );
 }
+const FAQ = [
+  [
+    "Como instalar no iPhone?",
+    "Abra o endereço publicado no Safari, toque em Compartilhar e em Adicionar à Tela de Início.",
+  ],
+  [
+    "O que funciona sem internet?",
+    "Após a primeira abertura conectada, peso, refeições, treinos, medidas e check-ins ficam disponíveis offline neste dispositivo e sincronizam ao reabrir o app com internet. Fotos, chat e exclusões exigem conexão.",
+  ],
+  [
+    "Como o readiness é calculado?",
+    "É uma heurística de sono, energia, fadiga, dor, estresse e carga recente, não um instrumento clínico validado.",
+  ],
+  [
+    "O BF estimado é preciso?",
+    "Não. O BF por circunferências usa a fórmula US Navy para homens adultos, com erro individual relevante. Trate como tendência, não como medição.",
+  ],
+  [
+    "De onde vêm os valores dos alimentos e das calorias?",
+    "Os alimentos iniciais são sementes aproximadas e editáveis. A contagem de calorias não mede com precisão o seu gasto.",
+  ],
+  [
+    "O que ainda não existe no app?",
+    "Integração com Apple Health (passos são registrados manualmente), visão computacional de refeições, BF por análise automática de fotos, sincronização com relógios e notificações em segundo plano.",
+  ],
+] as const;
+const SOURCES = [
+  [
+    "ISSN · proteína e exercício",
+    "https://link.springer.com/article/10.1186/s12970-017-0177-8",
+  ],
+  [
+    "AIS · categorias de peso e performance",
+    "https://www.ausport.gov.au/ais/position_statements/making-weight-in-weight-category-sports",
+  ],
+] as const;
 export function SettingsView(p: Props) {
   const { data, save, notice } = p;
   return (
@@ -1911,17 +2118,6 @@ export function SettingsView(p: Props) {
               <p>{g.title}</p>
             </div>
           ))}
-      </section>
-      <section className="card section">
-        <h2>Instalar no iPhone</h2>
-        <p>
-          Abra o endereço publicado no Safari, toque em Compartilhar e em
-          Adicionar à Tela de Início. Após a primeira abertura conectada,
-          registros ficam disponíveis offline neste dispositivo e são
-          sincronizados ao reabrir o app com internet. Fotos, chat e exclusões
-          exigem conexão. Passos são registrados manualmente; não há integração
-          com Apple Health nesta versão.
-        </p>
       </section>
       <section className="card section">
         <h2>Privacidade e portabilidade</h2>
@@ -1958,37 +2154,29 @@ export function SettingsView(p: Props) {
         </Button>
       </section>
       <section className="card section">
-        <h2>Critérios e limitações</h2>
-        <p>
-          Readiness é uma heurística de sono, energia, fadiga, dor, estresse e
-          carga recente, não um instrumento clínico validado. BF por
-          circunferências usa US Navy para homens adultos, com erro individual
-          relevante. Valores de alimentos são sementes aproximadas e editáveis.
-          A contagem de calorias não mede com precisão seu gasto.
-        </p>
-        <p>
-          <a
-            className="text-button"
-            href="https://link.springer.com/article/10.1186/s12970-017-0177-8"
-            target="_blank"
-            rel="noreferrer"
-          >
-            ISSN · proteína e exercício ↗
-          </a>
-          <a
-            className="text-button"
-            href="https://www.ausport.gov.au/ais/position_statements/making-weight-in-weight-category-sports"
-            target="_blank"
-            rel="noreferrer"
-          >
-            AIS · categorias de peso e performance ↗
-          </a>
-        </p>
-        <p>
-          Visão computacional de refeições, BF por análise automática de fotos,
-          sincronização com relógios e notificações em segundo plano ficam para
-          a próxima etapa.
-        </p>
+        <h2>Perguntas frequentes</h2>
+        <div className="faq">
+          {FAQ.map(([q, a]) => (
+            <details key={q}>
+              <summary>
+                {q}
+                <ChevronRight size={16} aria-hidden />
+              </summary>
+              <p>{a}</p>
+            </details>
+          ))}
+        </div>
+        <h3 className="sources-title">Referências usadas nas metas</h3>
+        <ul className="sources">
+          {SOURCES.map(([label, href]) => (
+            <li key={href}>
+              <a href={href} target="_blank" rel="noreferrer">
+                {label} <ArrowUpRight size={14} aria-hidden />
+                <span className="sr-only">(abre em nova aba)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
     </>
   );

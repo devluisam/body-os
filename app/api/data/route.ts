@@ -8,6 +8,8 @@ import {
   foodMacros,
   today,
   navyBF,
+  profile,
+  type MealItemInput,
 } from "@/lib/body";
 export async function GET(req: Request) {
   try {
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
     }
     if (table === "meals") {
       const all = await readData(user);
-      data.items = data.items.map((item: any) => {
+      data.items = data.items.map((item: MealItemInput) => {
         const f = all.foods.find((x) => x.id === item.foodId);
         if (!f) throw Error("Alimento não encontrado");
         return {
@@ -142,7 +144,8 @@ export async function POST(req: Request) {
     } else if (table === "body_measurements") {
       if (data.abdomen <= data.neck)
         throw Error("Abdômen deve ser maior que pescoço");
-      const bf = navyBF(177, data.abdomen, data.neck);
+      const height = profile(await readData(user)).height;
+      const bf = height ? navyBF(height, data.abdomen, data.neck) : null;
       statements.push(
         ...(bf === null
           ? []
@@ -191,7 +194,7 @@ export async function DELETE(req: Request) {
   try {
     guard(req);
     const user = owner(req),
-      { table, id } = (await req.json()) as any;
+      { table, id } = (await req.json()) as { table: Table; id: string };
     if (!TABLES.includes(table) || !schemas[table as Table])
       throw Error("Registro inválido");
     await db()
